@@ -147,9 +147,9 @@ export function FindWaterTab({ sources, onRequestClick, demands }) {
 // ============================================================================
 // 2. MY DEMANDS TAB VIEW
 // ============================================================================
-export function MyDemandsTab({ demands, onOpenCreateDemand }) {
-  const totalLitres = (demands || []).reduce((sum, d) => sum + Number(d.quantity || 0), 0);
-  const activeCount = (demands || []).filter((d) => d.status === 'Active').length;
+export function MyDemandsTab({ demands, onOpenCreateDemand, onFindMatches }) {
+  const totalLitres = (demands || []).reduce((sum, d) => sum + Number(d.quantity || d.requiredQuantity || 0), 0);
+  const activeCount = (demands || []).filter((d) => d.status === 'Active' || d.status === 'Partially Matched').length;
 
   return (
     <div className="tab-page-container">
@@ -173,7 +173,7 @@ export function MyDemandsTab({ demands, onOpenCreateDemand }) {
           <span className="kpi-mini-val">{demands?.length || 0}</span>
         </div>
         <div className="kpi-mini-card">
-          <span className="kpi-mini-label">Active Matching</span>
+          <span className="kpi-mini-label">Active Sourcing</span>
           <span className="kpi-mini-val" style={{ color: '#059669' }}>{activeCount}</span>
         </div>
         <div className="kpi-mini-card">
@@ -181,198 +181,409 @@ export function MyDemandsTab({ demands, onOpenCreateDemand }) {
           <span className="kpi-mini-val">{totalLitres.toLocaleString()} Litres</span>
         </div>
         <div className="kpi-mini-card">
-          <span className="kpi-mini-label">Avg. Lead Time</span>
-          <span className="kpi-mini-val">2.4 Hours</span>
+          <span className="kpi-mini-label">Quality Protocol</span>
+          <span className="kpi-mini-val" style={{ color: '#0284c7' }}>CPCB Class B+</span>
         </div>
       </div>
 
       {/* Demand Cards List */}
       <div className="demands-list-grid">
-        {(demands || []).map((dem) => (
-          <div key={dem.id} className="demand-management-card">
-            <div className="demand-card-header">
-              <div>
-                <h4 className="demand-card-title">{dem.title}</h4>
-                <span className="demand-purpose-pill">Purpose: {dem.purpose}</span>
-              </div>
-              <span className={`demand-status-badge status-${dem.status?.toLowerCase()}`}>
-                {dem.status}
-              </span>
-            </div>
+        {(demands || []).map((dem) => {
+          const totalVol = Number(dem.quantity || dem.requiredQuantity || 0);
+          const allocated = Number(dem.allocatedQuantity || 0);
+          const fulfilled = Number(dem.fulfilledQuantity || 0);
+          const remaining = dem.remainingQuantity !== undefined ? dem.remainingQuantity : Math.max(0, totalVol - allocated - fulfilled);
+          const matchPercent = totalVol > 0 ? Math.min(100, Math.round(((allocated + fulfilled) / totalVol) * 100)) : 0;
 
-            <div className="demand-volume-row">
-              <div>
-                <span className="demand-vol-num">{(dem.quantity || 0).toLocaleString()}</span>
-                <span className="demand-vol-unit"> Litres</span>
+          return (
+            <div key={dem.id} className="demand-management-card">
+              <div className="demand-card-header">
+                <div>
+                  <h4 className="demand-card-title">{dem.title}</h4>
+                  <span className="demand-purpose-pill">Purpose: {dem.purpose}</span>
+                </div>
+                <span className={`demand-status-badge status-${(dem.status || 'Active').toLowerCase().replace(/\s+/g, '-')}`}>
+                  {dem.status || 'Active'}
+                </span>
               </div>
-              <span className="demand-date">Created on {dem.createdAt || 'Apr 20, 2026'}</span>
-            </div>
 
-            <div className="demand-match-progress">
-              <div className="progress-labels">
-                <span>Matching Progress</span>
-                <span>{dem.status === 'Active' ? '80% matched' : 'Pending route'}</span>
+              <div className="demand-volume-row">
+                <div>
+                  <span className="demand-vol-num">{totalVol.toLocaleString()}</span>
+                  <span className="demand-vol-unit"> Litres Required</span>
+                </div>
+                <span className="demand-date">Created {dem.createdAt || 'Apr 2026'}</span>
               </div>
-              <div className="progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: dem.status === 'Active' ? '80%' : '35%' }}
-                ></div>
-              </div>
-            </div>
 
-            <div className="demand-card-footer">
-              <span style={{ fontSize: '13px', color: '#64748b' }}>
-                <MapPin size={13} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                Chennai, TN
-              </span>
-              <button
-                className="btn-outline-sm"
-                onClick={() => alert(`Allocating supply for demand: ${dem.title}`)}
-              >
-                View Matches
-              </button>
+              <div className="demand-allocation-stats" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', margin: '8px 0', color: '#64748b' }}>
+                <span>Remaining: <strong style={{ color: remaining > 0 ? '#0f172a' : '#059669' }}>{remaining.toLocaleString()} L</strong></span>
+                <span>Allocated: <strong style={{ color: '#0284c7' }}>{allocated.toLocaleString()} L</strong></span>
+                <span>Fulfilled: <strong style={{ color: '#059669' }}>{fulfilled.toLocaleString()} L</strong></span>
+              </div>
+
+              <div className="demand-match-progress">
+                <div className="progress-labels">
+                  <span>Matching Progress</span>
+                  <span>{matchPercent}% covered</span>
+                </div>
+                <div className="progress-track">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${matchPercent}%`, background: matchPercent === 100 ? '#059669' : '#10b981' }}
+                  ></div>
+                </div>
+              </div>
+
+              <div className="demand-card-footer">
+                <span style={{ fontSize: '13px', color: '#64748b' }}>
+                  <MapPin size={13} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                  {dem.deliveryLocation || "Chennai, TN"}
+                </span>
+                <button
+                  className="btn-outline-sm btn-find-matches-action"
+                  onClick={() => onFindMatches ? onFindMatches(dem) : alert(`Finding matches for ${dem.title}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontWeight: 700,
+                    borderColor: '#10b981',
+                    color: '#065f46',
+                    background: '#f0fdf4'
+                  }}
+                >
+                  <Sparkles size={14} className="text-emerald-600" />
+                  Find Matches
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// 3. MY MATCHES TAB VIEW
+// 3. MY MATCHES TAB VIEW (SHARED PERSISTENT MATCHES & LIVE BUYER REQUESTS)
 // ============================================================================
-export function MyMatchesTab({ showToast }) {
-  const matches = [
-    {
-      id: 'MAT-2026-081',
-      source: 'Factory A (Industrial Recycled)',
-      destination: 'Green Valley Apartments (Facility Tank #1)',
-      volume: 4000,
-      transporter: 'EcoFlow Tanker TN-09-AX-4421',
-      driver: 'K. Ramesh (+91 98401 22334)',
-      eta: 'In Transit — 22 mins away',
-      status: 'In Transit',
-      qaCert: 'AquaCert QA-9921 (Passed)',
-      cost: 1020,
-      savings: 1380,
-    },
-    {
-      id: 'MAT-2026-079',
-      source: 'Apartment Complex (Greywater Media)',
-      destination: 'Green Valley Landscape Zone',
-      volume: 3500,
-      transporter: 'EcoFlow Tanker TN-07-CB-1190',
-      driver: 'M. Senthil (+91 98842 55441)',
-      eta: 'Delivered Today at 10:30 AM',
-      status: 'Completed',
-      qaCert: 'AquaCert QA-9874 (Passed)',
-      cost: 890,
-      savings: 1210,
-    },
-  ];
+export function MyMatchesTab({ 
+  matches = [], 
+  requests = [], 
+  onConfirmReceipt, 
+  onOpenRescue, 
+  onRefresh, 
+  showToast 
+}) {
+  const [activeSection, setActiveSection] = useState('all'); // 'all' | 'matches' | 'requests'
+
+  const completedCount = matches.filter(m => m.status === 'Completed').length;
+  const inTransitCount = matches.filter(m => m.status === 'In Transit' || m.status === 'Scheduled').length;
+  const pendingRequests = requests.filter(r => r.status === 'Pending').length;
 
   return (
     <div className="tab-page-container">
-      <div className="tab-header-banner">
+      <div className="tab-header-banner flex-between">
         <div>
           <h2 className="tab-page-title">My Matches & Deliveries</h2>
           <p className="tab-page-subtitle">
-            Track active water transport routes, lab certifications, tanker dispatch, and confirm delivered litres.
+            Track active water transport routes, monitor tanker waybills, and confirm delivered litres to verify real impact.
           </p>
+        </div>
+        {onRefresh && (
+          <button 
+            className="btn-outline-sm"
+            onClick={onRefresh}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={14} />
+            Refresh Status
+          </button>
+        )}
+      </div>
+
+      {/* Mini KPI summary */}
+      <div className="tab-kpi-bar" style={{ marginBottom: '20px' }}>
+        <div className="kpi-mini-card">
+          <span className="kpi-mini-label">Confirmed Matches</span>
+          <span className="kpi-mini-val">{matches.length}</span>
+        </div>
+        <div className="kpi-mini-card">
+          <span className="kpi-mini-label">Active Delivery</span>
+          <span className="kpi-mini-val" style={{ color: '#0284c7' }}>{inTransitCount}</span>
+        </div>
+        <div className="kpi-mini-card">
+          <span className="kpi-mini-label">Pending Supplier Review</span>
+          <span className="kpi-mini-val" style={{ color: '#d97706' }}>{pendingRequests}</span>
+        </div>
+        <div className="kpi-mini-card">
+          <span className="kpi-mini-label">Completed Reuse</span>
+          <span className="kpi-mini-val" style={{ color: '#059669' }}>{completedCount}</span>
         </div>
       </div>
 
-      <div className="matches-feed">
-        {matches.map((m) => (
-          <div key={m.id} className="match-order-card">
-            <div className="match-header-row">
-              <div>
-                <span className="match-id-pill">{m.id}</span>
-                <h3 className="match-route-title">
-                  {m.source} ➔ {m.destination}
-                </h3>
-              </div>
-              <span className={`match-status-badge ${m.status === 'In Transit' ? 'transit' : 'completed'}`}>
-                {m.status === 'In Transit' ? <Truck size={14} /> : <CheckCircle2 size={14} />}
-                {m.status}
-              </span>
-            </div>
-
-            {/* Stepper */}
-            <div className="delivery-stepper">
-              <div className="step-point completed">
-                <div className="step-dot">✓</div>
-                <span>Deal Agreed</span>
-              </div>
-              <div className="step-line completed"></div>
-              <div className="step-point completed">
-                <div className="step-dot">✓</div>
-                <span>Lab QA Passed</span>
-              </div>
-              <div className="step-line completed"></div>
-              <div className={`step-point ${m.status === 'In Transit' ? 'active' : 'completed'}`}>
-                <div className="step-dot">{m.status === 'In Transit' ? '🚚' : '✓'}</div>
-                <span>Dispatched</span>
-              </div>
-              <div className={`step-line ${m.status === 'Completed' ? 'completed' : ''}`}></div>
-              <div className={`step-point ${m.status === 'Completed' ? 'completed' : 'pending'}`}>
-                <div className="step-dot">{m.status === 'Completed' ? '✓' : '4'}</div>
-                <span>Delivered & Confirmed</span>
-              </div>
-            </div>
-
-            {/* Details Grid */}
-            <div className="match-details-grid">
-              <div className="m-detail-item">
-                <span className="m-label">Volume</span>
-                <span className="m-val">{m.volume.toLocaleString()} Litres</span>
-              </div>
-              <div className="m-detail-item">
-                <span className="m-label">Transporter</span>
-                <span className="m-val">{m.transporter}</span>
-              </div>
-              <div className="m-detail-item">
-                <span className="m-label">ETA / Arrival</span>
-                <span className="m-val">{m.eta}</span>
-              </div>
-              <div className="m-detail-item">
-                <span className="m-label">QA Verification</span>
-                <span className="m-val" style={{ color: '#059669' }}>
-                  <ShieldCheck size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                  {m.qaCert}
-                </span>
-              </div>
-            </div>
-
-            <div className="match-action-bar">
-              <div className="savings-callout">
-                Total ₹{m.cost} · <strong>Saved ₹{m.savings} vs Fresh Water</strong>
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  className="btn-outline-sm"
-                  onClick={() => showToast(`Opening live GPS tracker for ${m.transporter}...`, 'info')}
-                >
-                  <MapPin size={14} />
-                  Live GPS
-                </button>
-                <button
-                  className="btn-primary-sm"
-                  onClick={() => showToast(`Delivery confirmed for ${m.volume.toLocaleString()} L! Impact ledger updated.`, 'success')}
-                >
-                  <CheckCircle2 size={14} />
-                  Confirm Receipt
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Section Filter Pills */}
+      <div className="tab-category-pills" style={{ marginBottom: '20px' }}>
+        <button 
+          className={`cat-pill-btn ${activeSection === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveSection('all')}
+        >
+          All Activity ({matches.length + requests.length})
+        </button>
+        <button 
+          className={`cat-pill-btn ${activeSection === 'matches' ? 'active' : ''}`}
+          onClick={() => setActiveSection('matches')}
+        >
+          Active Deliveries & Matches ({matches.length})
+        </button>
+        <button 
+          className={`cat-pill-btn ${activeSection === 'requests' ? 'active' : ''}`}
+          onClick={() => setActiveSection('requests')}
+        >
+          Outgoing Requests ({requests.length})
+        </button>
       </div>
+
+      {/* 1. CONFIRMED MATCHES LIST */}
+      {(activeSection === 'all' || activeSection === 'matches') && (
+        <div className="matches-feed" style={{ marginBottom: '32px' }}>
+          {matches.length > 0 && (
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Truck size={18} className="text-emerald-700" />
+              Confirmed Water Reuse Matches ({matches.length})
+            </h3>
+          )}
+
+          {matches.map((m) => {
+            const isCompleted = m.status === 'Completed';
+            const isDelivered = m.status === 'Delivered';
+            const isInTransit = m.status === 'In Transit';
+            const isScheduled = m.status === 'Scheduled';
+
+            return (
+              <div key={m.id} className="match-order-card" style={{ border: isCompleted ? '1px solid #a7f3d0' : isDelivered ? '2px solid #0284c7' : '1px solid #e2e8f0' }}>
+                <div className="match-header-row">
+                  <div>
+                    <span className="match-id-pill">#{m.id}</span>
+                    {m.deliveryRef && (
+                      <span style={{ fontSize: '11px', color: '#64748b', marginLeft: '8px' }}>
+                        Waybill: <strong>{m.deliveryRef}</strong>
+                      </span>
+                    )}
+                    <h3 className="match-route-title" style={{ marginTop: '4px' }}>
+                      {m.sourceName || m.source} ➔ {m.destinationName || m.buyerName || m.destination}
+                    </h3>
+                  </div>
+                  <span className={`match-status-badge ${isCompleted ? 'completed' : isInTransit ? 'transit' : 'scheduled'}`}>
+                    {isCompleted ? <CheckCircle2 size={14} /> : isInTransit ? <Truck size={14} /> : <Clock size={14} />}
+                    {m.status}
+                  </span>
+                </div>
+
+                {/* Stepper Progress */}
+                <div className="delivery-stepper">
+                  <div className="step-point completed">
+                    <div className="step-dot">✓</div>
+                    <span>Agreed</span>
+                  </div>
+                  <div className="step-line completed"></div>
+                  <div className="step-point completed">
+                    <div className="step-dot">✓</div>
+                    <span>QA Lab Verified</span>
+                  </div>
+                  <div className={`step-line ${isInTransit || isDelivered || isCompleted ? 'completed' : ''}`}></div>
+                  <div className={`step-point ${isInTransit || isDelivered || isCompleted ? 'completed' : isScheduled ? 'active' : 'pending'}`}>
+                    <div className="step-dot">{isInTransit ? '🚚' : isDelivered || isCompleted ? '✓' : '3'}</div>
+                    <span>Dispatched</span>
+                  </div>
+                  <div className={`step-line ${isDelivered || isCompleted ? 'completed' : ''}`}></div>
+                  <div className={`step-point ${isCompleted ? 'completed' : isDelivered ? 'active' : 'pending'}`}>
+                    <div className="step-dot">{isCompleted ? '✓' : isDelivered ? '📦' : '4'}</div>
+                    <span>Delivered & Confirmed</span>
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div className="match-details-grid">
+                  <div className="m-detail-item">
+                    <span className="m-label">Volume</span>
+                    <span className="m-val">{(m.matchedQuantity || m.quantity || m.volume || 0).toLocaleString()} Litres</span>
+                  </div>
+                  <div className="m-detail-item">
+                    <span className="m-label">Logistics Fleet</span>
+                    <span className="m-val">{m.driverName || m.transporter || "EcoFlow Tanker Fleet"}</span>
+                  </div>
+                  <div className="m-detail-item">
+                    <span className="m-label">Scheduled Date / ETA</span>
+                    <span className="m-val">{m.scheduledDeliveryDate || m.matchDate || "Same Day"}</span>
+                  </div>
+                  <div className="m-detail-item">
+                    <span className="m-label">QA Compliance</span>
+                    <span className="m-val" style={{ color: '#059669' }}>
+                      <ShieldCheck size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                      Verified (CPCB Class B)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="match-action-bar">
+                  <div className="savings-callout">
+                    Est. Cost ₹{m.estimatedCost || m.cost || 1200} · <strong style={{ color: '#059669' }}>Real Freshwater Savings: {(m.matchedQuantity || m.quantity || 4000).toLocaleString()} L</strong>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {isDelivered && (
+                      <button
+                        className="btn-primary-sm"
+                        onClick={() => onConfirmReceipt(m.id)}
+                        style={{
+                          background: 'linear-gradient(135deg, #059669, #10b981)',
+                          color: '#fff',
+                          fontWeight: 700,
+                          padding: '8px 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <CheckCircle2 size={15} />
+                        Confirm Receipt & Complete Reuse
+                      </button>
+                    )}
+
+                    {isCompleted && (
+                      <span style={{ fontSize: '13px', color: '#059669', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <CheckCircle2 size={16} /> Water Confirmed Reused
+                      </span>
+                    )}
+
+                    {!isCompleted && !isDelivered && (
+                      <button
+                        className="btn-outline-sm"
+                        onClick={() => showToast(`Tanker #${m.deliveryRef || m.id} is en route. Driver contact: ${m.driverPhone || "+91 97890 44556"}`, 'info')}
+                      >
+                        <Truck size={14} />
+                        Track Tanker
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 2. OUTGOING BUYER REQUESTS LIST */}
+      {(activeSection === 'all' || activeSection === 'requests') && requests.length > 0 && (
+        <div className="requests-feed" style={{ marginBottom: '28px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Droplet size={18} className="text-teal-700" />
+            Outgoing Water Requests ({requests.length})
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {requests.map((r) => {
+              const isPending = r.status === 'Pending';
+              const isAccepted = r.status === 'Accepted';
+              const isRejected = r.status === 'Rejected';
+
+              return (
+                <div 
+                  key={r.id} 
+                  style={{
+                    background: '#fff',
+                    border: isRejected ? '1px solid #fecaca' : isAccepted ? '1px solid #a7f3d0' : '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '14px 18px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '4px' }}>
+                          #{r.id}
+                        </span>
+                        <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+                          Request to {r.sourceName}
+                        </h4>
+                      </div>
+                      <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+                        Requested: <strong>{r.requestedQuantity.toLocaleString()} L</strong> for <strong>{r.intendedReuse}</strong> · Scheduled for {r.requestedDate || "ASAP"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className={`status-pill pill-${(r.status || 'Pending').toLowerCase().replace(/\s+/g, '-')}`}>
+                        {r.status === 'Pending' ? 'Awaiting Supplier Response' : r.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Rejection Alert Banner with Rescue Trigger */}
+                  {isRejected && (
+                    <div style={{ marginTop: '12px', background: '#fff5f5', border: '1px solid #fed7d7', borderRadius: '8px', padding: '10px 14px' }}>
+                      <div style={{ color: '#c53030', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+                        Declined Reason: {r.rejectionReason || "Unavailable for requested window"}
+                      </div>
+                      {r.rejectionNotes && (
+                        <div style={{ fontSize: '12px', color: '#742a2a', marginBottom: '8px' }}>
+                          Note: "{r.rejectionNotes}"
+                        </div>
+                      )}
+                      <button
+                        className="btn-rescue-action"
+                        onClick={() => onOpenRescue ? onOpenRescue(r.demandId, r.sourceId, r.rejectionReason) : showToast("Scanning backup suppliers...", 'info')}
+                        style={{
+                          background: 'linear-gradient(135deg, #0f766e, #0d9488)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <ShieldAlert size={14} />
+                        Find Alternative Sources (ReLoop Rescue™)
+                      </button>
+                    </div>
+                  )}
+
+                  {isPending && (
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#d97706', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Clock size={13} />
+                      Supplier notified. Inventory will be reserved upon acceptance.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {matches.length === 0 && requests.length === 0 && (
+        <div className="empty-state-box" style={{ padding: '48px 24px', textAlign: 'center', background: '#fff', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+          <Truck size={42} style={{ color: '#94a3b8', margin: '0 auto 12px' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#334155', margin: '0 0 6px' }}>
+            No Matches or Requests Found
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748b', maxWidth: '420px', margin: '0 auto' }}>
+            You haven't requested any water allocations yet. Go to <strong>My Demands</strong> and click <strong>Find Matches</strong> to discover verified suppliers!
+          </p>
+        </div>
+      )}
     </div>
   );
 }
+
 
 // ============================================================================
 // 4. RELOOP RESCUE TAB VIEW

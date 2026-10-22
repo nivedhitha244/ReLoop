@@ -129,8 +129,8 @@ const DEMO_ACCOUNTS = {
 export default function App() {
   // 'login' | 'signup'
   const [mode, setMode] = useState("login");
-  // 'supplier' | 'buyer' | 'transporter' | 'verifier'
-  const [selectedRole, setSelectedRole] = useState("buyer");
+  // 'supplier' | 'buyer' | 'transporter' | 'verifier' | 'admin' (null by default so user clicks what they need)
+  const [selectedRole, setSelectedRole] = useState(null);
 
   // Form State (strictly empty by default - showing only placeholders)
   const [fullName, setFullName] = useState("");
@@ -183,6 +183,15 @@ export default function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setAlert(null);
+
+    // ACCOUNT ROLE VALIDATION
+    if (!selectedRole) {
+      setAlert({
+        type: "error",
+        message: "Please select an account type above to proceed.",
+      });
+      return;
+    }
 
     // SIGN UP VALIDATION
     if (mode === "signup") {
@@ -387,6 +396,7 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setSelectedRole(null);
     setActivePortalView('auto');
     setAlert(null);
     setPassword("");
@@ -516,48 +526,19 @@ export default function App() {
           )}
 
           <form onSubmit={handleSubmit}>
-            {/* Account Type Selector Label & Demo Quick Fill */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            {/* Account Type Selector Label */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <span className="section-label" style={{ marginBottom: 0 }}>
                 {mode === "login" ? "Select Account Type" : "I am joining as a:"}
               </span>
             </div>
 
-            {/* Quick Demo Fill Switcher */}
-            {mode === "login" && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Demo Quick Fill:</span>
-                {['admin', 'buyer', 'supplier', 'transporter', 'verifier'].map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRole(r);
-                      setEmail(DEMO_ACCOUNTS[r].email);
-                      setPassword(DEMO_ACCOUNTS[r].password);
-                    }}
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      background: selectedRole === r ? '#0c6e5d' : '#f1f5f9',
-                      color: selectedRole === r ? '#ffffff' : '#334155',
-                      border: '1px solid #e2e8f0',
-                      cursor: 'pointer',
-                      textTransform: 'capitalize'
-                    }}
-                  >
-                    {r === 'admin' ? '🛡️ Admin' : r}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {/* 5 Platform Role Selector Cards */}
             <div className="role-grid">
               {/* 1. Supplier */}
-              <div
+              <button
+                type="button"
+                id="role-supplier"
                 className={`role-card ${selectedRole === "supplier" ? "active" : ""}`}
                 onClick={() => handleSelectRole("supplier")}
               >
@@ -570,10 +551,12 @@ export default function App() {
                     <CheckCircle2 size={16} strokeWidth={1.8} />
                   </div>
                 )}
-              </div>
+              </button>
 
               {/* 2. Buyer */}
-              <div
+              <button
+                type="button"
+                id="role-buyer"
                 className={`role-card ${selectedRole === "buyer" ? "active" : ""}`}
                 onClick={() => handleSelectRole("buyer")}
               >
@@ -586,10 +569,12 @@ export default function App() {
                     <CheckCircle2 size={16} strokeWidth={1.8} />
                   </div>
                 )}
-              </div>
+              </button>
 
               {/* 3. Transporter */}
-              <div
+              <button
+                type="button"
+                id="role-transporter"
                 className={`role-card ${selectedRole === "transporter" ? "active" : ""}`}
                 onClick={() => handleSelectRole("transporter")}
               >
@@ -602,10 +587,12 @@ export default function App() {
                     <CheckCircle2 size={16} strokeWidth={1.8} />
                   </div>
                 )}
-              </div>
+              </button>
 
               {/* 4. Verifier */}
-              <div
+              <button
+                type="button"
+                id="role-verifier"
                 className={`role-card ${selectedRole === "verifier" ? "active" : ""}`}
                 onClick={() => handleSelectRole("verifier")}
               >
@@ -618,10 +605,12 @@ export default function App() {
                     <CheckCircle2 size={16} strokeWidth={1.8} />
                   </div>
                 )}
-              </div>
+              </button>
 
               {/* 5. Admin */}
-              <div
+              <button
+                type="button"
+                id="role-admin"
                 className={`role-card ${selectedRole === "admin" ? "active" : ""}`}
                 style={{ gridColumn: 'span 2' }}
                 onClick={() => handleSelectRole("admin")}
@@ -635,16 +624,13 @@ export default function App() {
                 >
                   <Shield size={18} strokeWidth={1.8} />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span className="role-label">Platform Administrator</span>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>Operations oversight, matching approvals, lab audits & metrics</span>
-                </div>
+                <span className="role-label">Platform Administrator</span>
                 {selectedRole === "admin" && (
                   <div className="role-check-badge">
                     <CheckCircle2 size={16} strokeWidth={1.8} />
                   </div>
                 )}
-              </div>
+              </button>
             </div>
 
             {/* SIGN UP SPECIFIC: Full Name / Organization */}
@@ -907,31 +893,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Quick Demo Credentials Helper */}
-            <div className="demo-credentials-box">
-              <span className="demo-credentials-title">Quick Demo Login:</span>
-              <div className="demo-buttons-row">
-                <button
-                  type="button"
-                  className="demo-pill-btn seller-demo-pill"
-                  onClick={() => handleFillDemo("supplier")}
-                  title="Auto-fill Supplier / Seller credentials"
-                >
-                  <span className="demo-pill-badge badge-seller">Seller</span>
-                  <span className="demo-pill-text">supplier@reloop.org</span>
-                </button>
-                <button
-                  type="button"
-                  className="demo-pill-btn buyer-demo-pill"
-                  onClick={() => handleFillDemo("buyer")}
-                  title="Auto-fill Buyer credentials"
-                >
-                  <span className="demo-pill-badge badge-buyer">Buyer</span>
-                  <span className="demo-pill-text">buyer@reloop.org</span>
-                </button>
-              </div>
-              <span className="demo-pwd-note">Demo Password: <strong>Password123!</strong></span>
-            </div>
           </form>
         </div>
       </div>

@@ -29,6 +29,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api', adminRoutes); // Mount at /api so /api/matches, /api/deliveries, etc. resolve directly
 app.use('/api', dashboardRoutes);
 app.use('/api', buyerRoutes);
+app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 

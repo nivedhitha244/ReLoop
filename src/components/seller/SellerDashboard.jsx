@@ -450,6 +450,18 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
         sources={sources}
         onTriggerRescue={handleTriggerRescue}
       />
+
+      {/* Dynamic Toast Feedback Notification */}
+      {toast && (
+        <div className={`seller-toast-banner ${toast.type}`}>
+          {toast.type === 'error' ? (
+            <AlertCircle size={18} />
+          ) : (
+            <CheckCircle2 size={18} />
+          )}
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

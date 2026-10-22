@@ -7,7 +7,7 @@ import WaterMap from './WaterMap';
 import SourcesTable from './SourcesTable';
 import ImpactGlance from './ImpactGlance';
 import RightSidebar from './RightSidebar';
-import { CreateDemandModal, RequestModal, RescueModal } from './Modals';
+import { CreateDemandModal, RequestModal, RescueModal, DemandMatchesModal } from './Modals';
 import { 
   FindWaterTab, 
   MyDemandsTab, 
@@ -31,9 +31,9 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
   
   // Data state
   const [user, setUser] = useState({
-    name: currentUser?.fullName || "Nivi world",
+    name: currentUser?.fullName || "Green Park",
     role: "Buyer",
-    initials: "NW",
+    initials: "GP",
     location: "Chennai, Tamil Nadu",
     weather: {
       temp: "32°C",
@@ -46,11 +46,14 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
   const [sources, setSources] = useState([]);
   const [demands, setDemands] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [requests, setRequests] = useState([]);
 
   // Modals state
   const [isDemandModalOpen, setIsDemandModalOpen] = useState(false);
   const [isRescueModalOpen, setIsRescueModalOpen] = useState(false);
   const [selectedSourceForRequest, setSelectedSourceForRequest] = useState(null);
+  const [selectedDemandForMatches, setSelectedDemandForMatches] = useState(null);
 
   // Payment & Order History state
   const [isOrderSidebarOpen, setIsOrderSidebarOpen] = useState(false);
@@ -72,16 +75,20 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
   // Initial data load
   const loadData = async () => {
     try {
-      const [statsData, sourcesData, demandsData, actsData] = await Promise.all([
+      const [statsData, sourcesData, demandsData, actsData, matchesData, requestsData] = await Promise.all([
         api.getStats(),
         api.getSources(),
         api.getDemands(),
-        api.getActivities()
+        api.getActivities(),
+        api.getMatches(),
+        api.getRequests()
       ]);
       setStats(statsData);
       setSources(sourcesData);
       setDemands(demandsData);
       setActivities(actsData);
+      setMatches(matchesData);
+      setRequests(requestsData);
     } catch (err) {
       console.error("Error loading dashboard data", err);
     }
@@ -104,14 +111,52 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
 
   // Action handlers
   const handleCreateDemand = async (newDemand) => {
-    const created = await api.createDemand(newDemand);
-    await loadData();
-    const qcText = newDemand.needQualityCheck ? " (Quality Check Required)" : " (Standard Supply)";
-    showToast(`Demand created for ${created.title} (${created.quantity.toLocaleString()} L)${qcText}!`);
+    try {
+      const created = await api.createDemand(newDemand);
+      await loadData();
+      const qcText = newDemand.needQualityCheck ? " (Quality Check Required)" : " (Standard Supply)";
+      showToast(`Demand created for ${created.title} (${created.quantity.toLocaleString()} L)${qcText}!`);
+      // Automatically prompt to find matches for the new demand
+      setSelectedDemandForMatches(created);
+    } catch (err) {
+      showToast(`Failed to post demand: ${err.message}`, 'info');
+    }
   };
 
   const handleRequestClick = (source) => {
     setSelectedSourceForRequest(source);
+  };
+
+  const handleFindMatches = (demand) => {
+    setSelectedDemandForMatches(demand);
+  };
+
+  const handleRequestWater = async (candidate, demand) => {
+    try {
+      const res = await api.requestWater({
+        sourceId: candidate.sourceId,
+        demandId: demand.id,
+        requestedQuantity: demand.quantity || demand.requiredQuantity,
+        notes: `Allocation request for ${demand.purpose} (${(demand.quantity || demand.requiredQuantity).toLocaleString()} L)`
+      });
+      await loadData();
+      showToast(`Water request #${res.request.id} sent to ${candidate.sourceName}!`, 'success');
+      setSelectedDemandForMatches(null);
+      setActiveTab('my-matches');
+    } catch (err) {
+      showToast(`Request failed: ${err.message}`, 'info');
+      throw err;
+    }
+  };
+
+  const handleConfirmReceipt = async (matchId) => {
+    try {
+      await api.confirmDelivery(matchId);
+      await loadData();
+      showToast("Delivery receipt confirmed! Freshwater savings ledger updated.", 'success');
+    } catch (err) {
+      showToast(`Failed to confirm delivery: ${err.message}`, 'info');
+    }
   };
 
   // Payment Operations Module Handlers
@@ -141,7 +186,7 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
 
   const handleConfirmMatch = async (sourceId, demandId, qty, needQualityCheck) => {
     const demand = demands.find(d => d.id === demandId);
-    await api.requestMatch(sourceId, demandId);
+    await api.requestMatch(sourceId, demandId, qty);
     await loadData();
     
     // Open Payment Operations Module directly with selected source and demand details
@@ -157,12 +202,14 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
     handleOpenCheckout(payload);
   };
 
-  const handleExecuteRescue = async () => {
-    const res = await api.triggerRescue();
+  const handleExecuteRescue = async (demandId, failedSourceId, reason) => {
+    const targetDemandId = demandId || demands[0]?.id;
+    const res = await api.triggerRescue(targetDemandId, failedSourceId, reason);
     await loadData();
-    showToast("ReLoop Rescue activated! Alternative supply dispatched.");
+    showToast("ReLoop Rescue activated! Found verified alternative sources.");
     return res;
   };
+
 
   return (
     <div className="reloop-app-layout">
@@ -323,12 +370,23 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
             <MyDemandsTab 
               demands={demands} 
               onOpenCreateDemand={() => setIsDemandModalOpen(true)} 
+              onFindMatches={handleFindMatches}
             />
           )}
 
           {/* TAB 4: MY MATCHES */}
           {activeTab === 'my-matches' && (
-            <MyMatchesTab showToast={showToast} />
+            <MyMatchesTab 
+              matches={matches}
+              requests={requests}
+              onConfirmReceipt={handleConfirmReceipt}
+              onOpenRescue={(dId, sId, rsn) => {
+                handleExecuteRescue(dId, sId, rsn);
+                setIsRescueModalOpen(true);
+              }}
+              onRefresh={loadData}
+              showToast={showToast}
+            />
           )}
 
           {/* TAB 5: RELOOP RESCUE */}
@@ -350,6 +408,13 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
         onSubmit={handleCreateDemand}
       />
 
+      <DemandMatchesModal
+        isOpen={Boolean(selectedDemandForMatches)}
+        demand={selectedDemandForMatches}
+        onClose={() => setSelectedDemandForMatches(null)}
+        onRequestWater={handleRequestWater}
+      />
+
       <RequestModal 
         isOpen={Boolean(selectedSourceForRequest)}
         source={selectedSourceForRequest}
@@ -363,6 +428,7 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
         onClose={() => setIsRescueModalOpen(false)}
         onExecuteRescue={handleExecuteRescue}
       />
+
 
       {/* Payment Operations Module: Floating Checkout Interface */}
       <PaymentCheckoutModal 

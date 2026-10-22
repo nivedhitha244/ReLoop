@@ -2,38 +2,19 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { 
+  loadDB, 
+  saveDB, 
+  acceptWaterRequest, 
+  rejectWaterRequest, 
+  updateMatchStatus, 
+  getCanonicalSources 
+} from '../services/inventoryService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
-const DB_FILE = path.join(__dirname, '..', 'data_store.json');
-
-// Helper to safely read database file
-function loadDB() {
-  if (fs.existsSync(DB_FILE)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-      ensureSellerSeedData(data);
-      return data;
-    } catch (e) {
-      console.error("[Seller API] Error reading DB file:", e);
-    }
-  }
-  const defaultData = {};
-  ensureSellerSeedData(defaultData);
-  saveDB(defaultData);
-  return defaultData;
-}
-
-// Helper to safely write database file
-function saveDB(data) {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
-  } catch (e) {
-    console.error("[Seller API] Error writing DB file:", e);
-  }
-}
 
 // Seed comprehensive seller defaults into DB store if absent
 function ensureSellerSeedData(db) {
@@ -781,6 +762,14 @@ router.patch('/sources/:id/availability', (req, res) => {
   }
 
   source.lastUpdated = new Date().toISOString().split('T')[0];
+
+  const matchedBuyerSource = (db.sources || []).find(s => s.id === sourceId);
+  if (matchedBuyerSource) {
+    matchedBuyerSource.available = source.available;
+    matchedBuyerSource.availabilityStatus = source.availabilityStatus;
+    matchedBuyerSource.lastUpdated = source.lastUpdated;
+  }
+
   saveDB(db);
   res.json({ success: true, message: `Source availability updated to ${source.availabilityStatus}.`, source });
 });
@@ -808,7 +797,16 @@ router.patch('/sources/:id/quantity', (req, res) => {
   }
 
   source.quantity = newQty;
+  source.availableQuantity = newQty;
   source.lastUpdated = new Date().toISOString().split('T')[0];
+
+  const matchedBuyerSource = (db.sources || []).find(s => s.id === sourceId);
+  if (matchedBuyerSource) {
+    matchedBuyerSource.quantity = newQty;
+    matchedBuyerSource.availableQuantity = newQty;
+    matchedBuyerSource.lastUpdated = source.lastUpdated;
+  }
+
   saveDB(db);
   res.json({ success: true, message: "Available quantity updated successfully.", source });
 });
@@ -817,24 +815,36 @@ router.delete('/sources/:id', (req, res) => {
   const db = loadDB();
   const sourceId = req.params.id;
   
-  // Check if there are active in-transit or scheduled matches
-  const activeMatches = (db.sellerMatches || []).filter(m => 
-    m.sourceId === sourceId && (m.status === 'In Transit' || m.status === 'Scheduled' || m.status === 'Accepted')
-  );
-
-  if (activeMatches.length > 0) {
-    return res.status(400).json({ 
-      error: `Cannot delete this source: There are ${activeMatches.length} active match(es) currently scheduled or in-transit. Please fulfill or cancel them first.` 
+  // Cancel any active matches gracefully
+  if (db.sellerMatches) {
+    db.sellerMatches.forEach(m => {
+      if (m.sourceId === sourceId && (m.status === 'In Transit' || m.status === 'Scheduled' || m.status === 'Accepted')) {
+        m.status = 'Cancelled';
+        m.cancellationReason = 'Source deleted by supplier.';
+      }
     });
   }
 
-  db.sellerSources = db.sellerSources.filter(s => s.id !== sourceId);
+  if (db.matches) {
+    db.matches.forEach(m => {
+      if (m.sourceId === sourceId && (m.status === 'In Transit' || m.status === 'Scheduled' || m.status === 'Accepted')) {
+        m.status = 'Cancelled';
+        m.cancellationReason = 'Source deleted by supplier.';
+      }
+    });
+  }
+
+  db.sellerSources = (db.sellerSources || []).filter(s => s.id !== sourceId);
   if (db.sources) {
     db.sources = db.sources.filter(s => s.id !== sourceId);
   }
 
+  if (db.sellerDocuments) {
+    db.sellerDocuments = db.sellerDocuments.filter(d => d.sourceId !== sourceId);
+  }
+
   saveDB(db);
-  res.json({ success: true, message: "Water source removed successfully." });
+  res.json({ success: true, message: "Water source removed successfully.", deletedId: sourceId });
 });
 
 // -------------------------------------------------------------
@@ -851,168 +861,36 @@ router.get('/requests', (req, res) => {
 });
 
 // ACCEPT BUYER REQUEST
-router.post('/requests/:id/accept', (req, res) => {
-  const db = loadDB();
-  const requestId = req.params.id;
-  const request = (db.sellerRequests || []).find(r => r.id === requestId);
-
-  if (!request) {
-    return res.status(404).json({ error: "Buyer request not found." });
-  }
-
-  if (request.status !== 'Pending') {
-    return res.status(400).json({ error: `Request has already been ${request.status.toLowerCase()}.` });
-  }
-
-  // Find corresponding source
-  const source = (db.sellerSources || []).find(s => s.id === request.sourceId);
-
-  if (!source) {
-    return res.status(404).json({ error: "The associated water source could not be found." });
-  }
-
-  // 1. Availability check
-  if (!source.available || source.availabilityStatus !== 'Available') {
-    return res.status(400).json({ 
-      error: "Cannot accept request: This water source is currently marked as Unavailable or Suspended." 
+router.post('/requests/:id/accept', async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    const result = await acceptWaterRequest(requestId);
+    res.json({ 
+      success: true, 
+      message: `Request accepted! ${result.request.requestedQuantity.toLocaleString()} L allocated. Delivery scheduled.`,
+      request: result.request,
+      match: result.match,
+      updatedSourceQuantity: result.updatedSource.quantity
     });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
-
-  // 2. Verification & Expiry check
-  if (source.verificationStatus !== 'Verified') {
-    return res.status(400).json({ 
-      error: `Cannot accept request: This water source has status "${source.verificationStatus}". Water quality verification must be complete and valid before allocations.` 
-    });
-  }
-
-  // 3. Inventory over-allocation check
-  if (source.quantity < request.requestedQuantity) {
-    return res.status(400).json({ 
-      error: `Insufficient inventory: Requested ${request.requestedQuantity.toLocaleString()} L, but only ${source.quantity.toLocaleString()} L is currently available.` 
-    });
-  }
-
-  // Deduct inventory safely
-  source.quantity -= request.requestedQuantity;
-  source.lastUpdated = new Date().toISOString().split('T')[0];
-
-  // Update request
-  request.status = "Accepted";
-  request.acceptedAt = new Date().toISOString();
-
-  // Create match record
-  const newMatch = {
-    id: `mat-s-${Date.now()}`,
-    requestId: request.id,
-    buyerName: request.buyerOrg || request.buyerName,
-    buyerContact: "+91 98765 43210",
-    sourceId: source.id,
-    sourceName: source.name,
-    matchedQuantity: request.requestedQuantity,
-    intendedReuse: request.intendedReuse,
-    matchDate: new Date().toISOString().split('T')[0],
-    status: "Scheduled",
-    deliveryMethod: "Tanker Fleet Delivery",
-    deliveryRef: `DLV-${Date.now().toString().slice(-6)}`,
-    driverName: "Assigned upon dispatch",
-    driverPhone: "+91 98400 12345",
-    tankerCapacity: `${Math.ceil(request.requestedQuantity / 1000) * 1000} L`,
-    pickupLocation: `${source.name} Loading Dock, ${source.location}`,
-    destinationLocation: request.deliveryLocation,
-    estimatedCost: request.estimatedDeliveryCost || 1500,
-    scheduledDeliveryDate: request.requestedDate || new Date().toISOString().split('T')[0],
-    instructions: `Delivery of ${request.requestedQuantity.toLocaleString()} L to ${request.buyerName} for ${request.intendedReuse}.`
-  };
-
-  db.sellerMatches.unshift(newMatch);
-
-  // Sync to general platform matches
-  if (db.matches) {
-    db.matches.unshift({
-      id: newMatch.id,
-      sourceId: source.id,
-      sourceName: source.name,
-      demandId: request.id,
-      destinationName: request.buyerName,
-      quantity: request.requestedQuantity,
-      distance: request.estimatedDistance || 5.0,
-      status: "Matched",
-      matchedAt: "Just now"
-    });
-  }
-
-  // Add notification & activity
-  db.sellerNotifications.unshift({
-    id: `notif-s-${Date.now()}`,
-    title: "Request Accepted & Match Scheduled",
-    message: `Accepted request from ${request.buyerName} for ${request.requestedQuantity.toLocaleString()} L. Allocated from ${source.name}.`,
-    time: "Just now",
-    timestamp: new Date().toISOString(),
-    read: false,
-    type: "match",
-    targetTab: "my-matches"
-  });
-
-  if (db.activities) {
-    db.activities.unshift({
-      id: `act-${Date.now()}`,
-      type: "match",
-      title: "Seller accepted buyer request",
-      detail: `${source.name} → ${request.buyerName} (${request.requestedQuantity.toLocaleString()} L)`,
-      time: "Just now",
-      icon: "link"
-    });
-  }
-
-  saveDB(db);
-  res.json({ 
-    success: true, 
-    message: `Request accepted! ${request.requestedQuantity.toLocaleString()} L allocated. Delivery scheduled.`,
-    request,
-    match: newMatch,
-    updatedSourceQuantity: source.quantity
-  });
 });
 
 // REJECT BUYER REQUEST
-router.post('/requests/:id/reject', (req, res) => {
-  const db = loadDB();
-  const requestId = req.params.id;
-  const { reason, notes } = req.body;
-
-  const request = (db.sellerRequests || []).find(r => r.id === requestId);
-
-  if (!request) {
-    return res.status(404).json({ error: "Buyer request not found." });
+router.post('/requests/:id/reject', async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    const { reason, notes } = req.body;
+    const request = await rejectWaterRequest(requestId, reason, notes);
+    res.json({ 
+      success: true, 
+      message: "Request has been declined and buyer notified.", 
+      request 
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
-
-  if (request.status !== 'Pending') {
-    return res.status(400).json({ error: `Request has already been ${request.status.toLowerCase()}.` });
-  }
-
-  if (!reason) {
-    return res.status(400).json({ error: "Please select a reason for rejecting the request." });
-  }
-
-  request.status = "Rejected";
-  request.rejectionReason = reason;
-  request.rejectionNotes = notes || "";
-  request.rejectedAt = new Date().toISOString();
-
-  // Add notification
-  db.sellerNotifications.unshift({
-    id: `notif-s-${Date.now()}`,
-    title: "Request Declined",
-    message: `Request for ${request.requestedQuantity.toLocaleString()} L declined (${reason}).`,
-    time: "Just now",
-    timestamp: new Date().toISOString(),
-    read: false,
-    type: "request",
-    targetTab: "incoming-requests"
-  });
-
-  saveDB(db);
-  res.json({ success: true, message: "Request has been declined and buyer notified.", request });
 });
 
 // -------------------------------------------------------------
@@ -1023,55 +901,21 @@ router.get('/matches', (req, res) => {
   res.json(db.sellerMatches || []);
 });
 
-router.patch('/matches/:id/status', (req, res) => {
-  const db = loadDB();
-  const matchId = req.params.id;
-  const { status, driverName, driverPhone, instructions } = req.body;
-
-  const match = (db.sellerMatches || []).find(m => m.id === matchId);
-
-  if (!match) {
-    return res.status(404).json({ error: "Match record not found." });
+router.patch('/matches/:id/status', async (req, res) => {
+  try {
+    const matchId = req.params.id;
+    const { status, driverName, driverPhone, instructions } = req.body;
+    const match = await updateMatchStatus(matchId, status, { driverName, driverPhone, instructions });
+    res.json({ 
+      success: true, 
+      message: `Match status updated to ${status}.`, 
+      match 
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
-
-  const validStatuses = ["Pending", "Accepted", "Scheduled", "In Transit", "Delivered", "Completed", "Cancelled"];
-  if (status && !validStatuses.includes(status)) {
-    return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
-  }
-
-  if (status) match.status = status;
-  if (driverName) match.driverName = driverName;
-  if (driverPhone) match.driverPhone = driverPhone;
-  if (instructions) match.instructions = instructions;
-
-  if (status === 'Completed' || status === 'Delivered') {
-    match.completedAt = new Date().toISOString();
-    match.confirmedReusedQuantity = match.matchedQuantity;
-  }
-
-  // Update corresponding match in general matches if present
-  if (db.matches) {
-    const genMatch = db.matches.find(m => m.id === match.id);
-    if (genMatch) {
-      genMatch.status = status;
-    }
-  }
-
-  // Add notification
-  db.sellerNotifications.unshift({
-    id: `notif-s-${Date.now()}`,
-    title: `Match Status Updated: ${status}`,
-    message: `Fulfillment #${match.id} for ${match.buyerName} (${match.matchedQuantity.toLocaleString()} L) is now ${status}.`,
-    time: "Just now",
-    timestamp: new Date().toISOString(),
-    read: false,
-    type: "match",
-    targetTab: "my-matches"
-  });
-
-  saveDB(db);
-  res.json({ success: true, message: `Match status updated to ${status}.`, match });
 });
+
 
 // -------------------------------------------------------------
 // 6. QUALITY & VERIFICATION CENTER

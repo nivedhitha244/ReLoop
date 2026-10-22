@@ -192,36 +192,91 @@ export const api = {
     };
   },
 
-  async requestMatch(sourceId, demandId) {
+  async getDemandMatches(demandId) {
     try {
-      const res = await fetch(`${API_BASE}/matches/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId, demandId })
-      });
+      const res = await fetch(`${API_BASE}/demands/${demandId}/matches`);
       if (res.ok) return await res.json();
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to fetch matches for this demand');
     } catch (e) {
-      console.warn("Backend match request error", e);
+      console.warn("[buyerApi] Error fetching demand matches:", e.message);
+      throw e;
     }
-    return { success: true };
   },
 
-  async triggerRescue(demandId, failedSourceId) {
+  async requestWater(payload) {
+    try {
+      const res = await fetch(`${API_BASE}/buyer/requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to request water allocation');
+      return data;
+    } catch (e) {
+      console.error("[buyerApi] Error requesting water:", e.message);
+      throw e;
+    }
+  },
+
+  async requestMatch(sourceId, demandId, quantity, notes) {
+    return this.requestWater({
+      sourceId,
+      demandId,
+      quantity,
+      notes
+    });
+  },
+
+  async getMatches() {
+    try {
+      const res = await fetch(`${API_BASE}/buyer/matches`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("[buyerApi] Error fetching matches:", e);
+    }
+    return [];
+  },
+
+  async getRequests() {
+    try {
+      const res = await fetch(`${API_BASE}/buyer/requests`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("[buyerApi] Error fetching requests:", e);
+    }
+    return [];
+  },
+
+  async confirmDelivery(matchId) {
+    try {
+      const res = await fetch(`${API_BASE}/matches/${matchId}/confirm`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to confirm receipt');
+      return data;
+    } catch (e) {
+      console.error("[buyerApi] Error confirming delivery:", e);
+      throw e;
+    }
+  },
+
+  async triggerRescue(demandId, failedSourceId, reason) {
     try {
       const res = await fetch(`${API_BASE}/rescue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ demandId, failedSourceId })
+        body: JSON.stringify({ demandId, failedSourceId, reason })
       });
       if (res.ok) return await res.json();
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Rescue operation failed');
     } catch (e) {
-      console.warn("Backend rescue error", e);
+      console.warn("[buyerApi] Backend rescue error:", e);
+      throw e;
     }
-    return {
-      message: "Rescue activated locally",
-      rescuedSource: initialMock.sources[3],
-      demand: initialMock.demands[0]
-    };
   },
 
   async getActivities() {
@@ -229,8 +284,9 @@ export const api = {
       const res = await fetch(`${API_BASE}/activities`);
       if (res.ok) return await res.json();
     } catch (e) {
-      console.warn("Backend not reached, using local fallback", e);
+      console.warn("[buyerApi] Backend not reached, using local fallback", e);
     }
     return initialMock.activities;
   }
 };
+
