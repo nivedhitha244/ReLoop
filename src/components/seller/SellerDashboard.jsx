@@ -24,6 +24,7 @@ import {
 } from './SellerModals';
 import { sellerApi } from '../../services/sellerApi';
 import { CheckCircle2, Info, AlertCircle } from 'lucide-react';
+import '../../dashboard.css';
 import './SellerDashboard.css';
 
 export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal }) {
@@ -48,6 +49,23 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
   const [selectedSourceForDetails, setSelectedSourceForDetails] = useState(null);
   const [selectedSourceForQuickQty, setSelectedSourceForQuickQty] = useState(null);
   const [isRescueModalOpen, setIsRescueModalOpen] = useState(false);
+
+  // Master Tab Switcher: closes all lingering modals to prevent UI overrides
+  const handleTabChange = (tabId) => {
+    setIsAddSourceOpen(false);
+    setSelectedRequestForAccept(null);
+    setSelectedRequestForReject(null);
+    setSelectedSourceForDetails(null);
+    setSelectedSourceForQuickQty(null);
+    setIsRescueModalOpen(false);
+
+    if (tabId === 'add-source') {
+      setActiveTab('my-sources');
+      setIsAddSourceOpen(true);
+    } else {
+      setActiveTab(tabId);
+    }
+  };
 
   // Toast State
   const [toast, setToast] = useState(null);
@@ -228,7 +246,7 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
       {/* Deep Teal-Green Seller Sidebar */}
       <SellerSidebar 
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         currentUser={currentUser}
         onLogout={onLogout}
         onSwitchPortal={onSwitchPortal}
@@ -244,11 +262,11 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
         <SellerHeader 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          onNotificationClick={() => setActiveTab('notifications')}
+          onNotificationClick={() => handleTabChange('notifications')}
           onOpenAddSource={() => setIsAddSourceOpen(true)}
           currentUser={currentUser}
           onLogout={onLogout}
-          onNavigateTab={(tab) => setActiveTab(tab)}
+          onNavigateTab={(tab) => handleTabChange(tab)}
           unreadCount={unreadCount}
           onToggleMobile={() => setIsMobileOpen(!isMobileOpen)}
         />
@@ -268,7 +286,7 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
               {/* 4 Live Metric Cards */}
               <SellerMetricsCards 
                 stats={stats}
-                onNavigateTab={(tab, param) => setActiveTab(tab)}
+                onNavigateTab={(tab, param) => handleTabChange(tab)}
               />
 
               {/* Overview Layout: Sources, Requests, Recent Activity */}
@@ -278,7 +296,7 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
                 matches={matches}
                 stats={stats}
                 notifications={notifications}
-                onNavigateTab={(tab) => setActiveTab(tab)}
+                onNavigateTab={(tab) => handleTabChange(tab)}
                 onOpenAddSource={() => setIsAddSourceOpen(true)}
                 onOpenSourceDetails={(src) => setSelectedSourceForDetails(src)}
                 onOpenAcceptRequest={(req) => setSelectedRequestForAccept(req)}
@@ -297,7 +315,7 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
               onOpenQuickQuantity={(src) => setSelectedSourceForQuickQty(src)}
               onToggleAvailability={handleToggleAvailability}
               onDeleteSource={handleDeleteSource}
-              onNavigateTab={(tab) => setActiveTab(tab)}
+              onNavigateTab={(tab) => handleTabChange(tab)}
             />
           )}
 
@@ -373,7 +391,7 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
               notifications={notifications}
               onMarkRead={handleMarkNotificationRead}
               onMarkAllRead={handleMarkAllNotificationsRead}
-              onNavigateTab={(tab) => setActiveTab(tab)}
+              onNavigateTab={(tab) => handleTabChange(tab)}
             />
           )}
 
@@ -390,11 +408,8 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
 
       {/* Interactive Modal Dialogs */}
       <AddSourceModal 
-        isOpen={isAddSourceOpen || activeTab === 'add-source'}
-        onClose={() => {
-          setIsAddSourceOpen(false);
-          if (activeTab === 'add-source') setActiveTab('my-sources');
-        }}
+        isOpen={isAddSourceOpen}
+        onClose={() => setIsAddSourceOpen(false)}
         onSubmit={handleAddSource}
         profile={profile}
       />

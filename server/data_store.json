@@ -378,7 +378,7 @@
       "type": "Treated Wastewater",
       "category": "Treated Wastewater",
       "totalRegisteredQuantity": 12000,
-      "quantity": 10000,
+      "quantity": 5000,
       "minSupply": 1000,
       "maxSupply": 12000,
       "location": "Perungudi Industrial Park, Chennai",
@@ -839,7 +839,7 @@
       "message": "Factory A Cooling Blowdown suspended (Scheduled cooling tower pipe replacement). Alternative Apex Tech Park STP flagged as backup.",
       "time": "Just now",
       "timestamp": "2026-10-22T17:17:01.628Z",
-      "read": false,
+      "read": true,
       "type": "rescue",
       "targetTab": "my-sources"
     },

@@ -159,8 +159,8 @@ export function AddSourceModal({ isOpen, onClose, onSubmit, profile }) {
   if (!isOpen) return null;
 
   return (
-    <div className="reloop-modal-backdrop">
-      <div className="reloop-modal-container seller-add-modal">
+    <div className="reloop-modal-backdrop" onClick={onClose}>
+      <div className="reloop-modal-container seller-add-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="modal-header-row">
           <div className="modal-title-wrap">
@@ -733,8 +733,8 @@ export function AcceptRequestModal({ isOpen, onClose, request, source, onConfirm
   const isLowInventory = source && source.quantity < request.requestedQuantity;
 
   return (
-    <div className="reloop-modal-backdrop">
-      <div className="reloop-modal-container confirmation-dialog-modal">
+    <div className="reloop-modal-backdrop" onClick={onClose}>
+      <div className="reloop-modal-container confirmation-dialog-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
           <div className="modal-title-wrap">
             <div className="modal-icon-bubble bg-emerald-100 text-emerald-700">
@@ -854,8 +854,8 @@ export function RejectRequestModal({ isOpen, onClose, request, onConfirm }) {
   };
 
   return (
-    <div className="reloop-modal-backdrop">
-      <div className="reloop-modal-container confirmation-dialog-modal">
+    <div className="reloop-modal-backdrop" onClick={onClose}>
+      <div className="reloop-modal-container confirmation-dialog-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
           <div className="modal-title-wrap">
             <div className="modal-icon-bubble bg-amber-100 text-amber-700">
@@ -937,8 +937,8 @@ export function SourceDetailsModal({ isOpen, onClose, source, onEdit, onToggleAv
   const lab = source.labReport || {};
 
   return (
-    <div className="reloop-modal-backdrop">
-      <div className="reloop-modal-container source-detail-modal">
+    <div className="reloop-modal-backdrop" onClick={onClose}>
+      <div className="reloop-modal-container source-detail-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
           <div className="modal-title-wrap">
             <div className="modal-icon-bubble bg-teal-100 text-teal-700">
@@ -1088,8 +1088,8 @@ export function QuickQuantityModal({ isOpen, onClose, source, onUpdate }) {
   };
 
   return (
-    <div className="reloop-modal-backdrop">
-      <div className="reloop-modal-container confirmation-dialog-modal">
+    <div className="reloop-modal-backdrop" onClick={onClose}>
+      <div className="reloop-modal-container confirmation-dialog-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
           <div className="modal-title-wrap">
             <div className="modal-icon-bubble bg-teal-100 text-teal-700">
@@ -1172,8 +1172,8 @@ export function SellerRescueModal({ isOpen, onClose, sources, onTriggerRescue })
   };
 
   return (
-    <div className="reloop-modal-backdrop">
-      <div className="reloop-modal-container confirmation-dialog-modal">
+    <div className="reloop-modal-backdrop" onClick={onClose}>
+      <div className="reloop-modal-container confirmation-dialog-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
           <div className="modal-title-wrap">
             <div className="modal-icon-bubble bg-teal-100 text-teal-800">
