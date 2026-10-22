@@ -54,7 +54,7 @@ export function SellerOverviewTab({
               onClick={onOpenAddSource}
             >
               <PlusCircle size={16} />
-              <span>+ Add Water Source</span>
+              <span>Add Water Source</span>
             </button>
             <button 
               className="ribbon-btn ribbon-btn-secondary"
@@ -468,7 +468,7 @@ export function MyWaterSourcesTab({
           onClick={onOpenAddSource}
         >
           <PlusCircle size={16} />
-          <span>+ Add Water Source</span>
+          <span>Add Water Source</span>
         </button>
       </div>
 

@@ -3,7 +3,6 @@ import {
   Search, 
   Bell, 
   PlusCircle, 
-  Menu, 
   User, 
   Settings, 
   LogOut, 
@@ -42,17 +41,8 @@ export default function SellerHeader({
 
   return (
     <header className="reloop-top-header seller-header">
-      {/* Mobile Menu Toggle */}
+      {/* Search Field */}
       <div className="header-left-wrap">
-        <button 
-          className="mobile-menu-trigger-btn"
-          onClick={onToggleMobile}
-          aria-label="Toggle navigation menu"
-        >
-          <Menu size={20} />
-        </button>
-
-        {/* Search Field */}
         <div className="search-bar-container">
           <Search className="search-icon" size={18} />
           <input
