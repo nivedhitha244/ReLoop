@@ -72,7 +72,7 @@ const BuyerRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Active', 'Pending', 'Partially Matched', 'Matched', 'Fulfilled', 'Cancelled'],
+      enum: ['Active', 'Pending', 'Partially Matched', 'Matched', 'Accepted', 'Confirmed', 'In Transit', 'Fulfilled', 'Completed', 'Cancelled'],
       default: 'Active',
     },
     statusColor: {
@@ -81,7 +81,7 @@ const BuyerRequestSchema = new mongoose.Schema(
     },
     matchingStatus: {
       type: String,
-      enum: ['Unmatched', 'In Review', 'Approved', 'Dispatched'],
+      enum: ['Unmatched', 'In Review', 'Approved', 'Dispatched', 'Matched', 'Confirmed', 'Completed'],
       default: 'Unmatched',
     },
   },

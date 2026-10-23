@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   ExternalLink,
   Shield,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function AdminTopbar({
@@ -24,6 +25,8 @@ export default function AdminTopbar({
   currentUser,
   onLogout,
   onNavigateSection,
+  onRefresh,
+  isRefreshing = false,
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -75,6 +78,27 @@ export default function AdminTopbar({
           <Calendar size={14} color="#0c6e5d" />
           <span>{todayStr}</span>
         </div>
+
+        {/* Live Sync Status & Manual Refresh Trigger */}
+        <button
+          className="admin-period-badge"
+          onClick={onRefresh}
+          title="Click to manually refresh all live admin metrics"
+          style={{
+            cursor: 'pointer',
+            background: isRefreshing ? '#ecfdf5' : '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            color: '#166534',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+          }}
+        >
+          <RefreshCw size={13} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none', color: '#16a34a' }} />
+          <span>{isRefreshing ? 'Syncing...' : 'Live Sync'}</span>
+        </button>
 
         {/* Notifications Popover Trigger */}
         <div style={{ position: 'relative' }}>

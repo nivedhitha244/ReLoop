@@ -14,132 +14,19 @@ const initialMock = {
     }
   },
   stats: {
-    totalDemand: 12000,
-    matchedQuantity: 7500,
-    matchedPercent: 62,
-    freshwaterSaved: 7500,
-    freshwaterSavedEq: 15000,
-    unmetDemand: 4500,
-    activeRequestsCount: 3,
-    transportCost: 3750,
-    sourcesUsed: 2
+    totalDemand: 0,
+    matchedQuantity: 0,
+    matchedPercent: 0,
+    freshwaterSaved: 0,
+    freshwaterSavedEq: 0,
+    unmetDemand: 0,
+    activeRequestsCount: 0,
+    transportCost: 0,
+    sourcesUsed: 0
   },
-  sources: [
-    {
-      id: "src-1",
-      name: "Factory A",
-      type: "Industrial",
-      iconType: "factory",
-      quantity: 5000,
-      distance: 2.8,
-      quality: "Verified",
-      coordinates: [13.0878, 80.2785],
-      available: true,
-      description: "Treated cooling tower blowdown, suitable for industrial reuse and irrigation."
-    },
-    {
-      id: "src-2",
-      name: "STP Plant",
-      type: "Treated Wastewater",
-      iconType: "leaf-water",
-      quantity: 7000,
-      distance: 6.5,
-      quality: "Pending",
-      coordinates: [13.0450, 80.2400],
-      available: true,
-      description: "Tertiary treated municipal wastewater, lab analysis verification in progress."
-    },
-    {
-      id: "src-3",
-      name: "IT Park",
-      type: "RO Reject Water",
-      iconType: "building",
-      quantity: 4000,
-      distance: 8.1,
-      quality: "Verified",
-      coordinates: [12.9800, 80.2200],
-      available: true,
-      description: "High TDS reverse osmosis reject water, suitable for flushing & dust suppression."
-    },
-    {
-      id: "src-4",
-      name: "Apartment Complex",
-      type: "Greywater",
-      iconType: "apartment",
-      quantity: 3000,
-      distance: 4.2,
-      quality: "Verified",
-      coordinates: [13.0100, 80.2600],
-      available: true,
-      description: "Residential greywater system filtered through sand & carbon media."
-    }
-  ],
-  demands: [
-    {
-      id: "dem-1",
-      title: "Green Park",
-      quantity: 4000,
-      purpose: "Irrigation",
-      status: "Active",
-      statusColor: "green",
-      coordinates: [13.0827, 80.2707],
-      createdAt: "2025-04-20"
-    },
-    {
-      id: "dem-2",
-      title: "Sports Complex",
-      quantity: 2000,
-      purpose: "Construction",
-      status: "Pending",
-      statusColor: "blue",
-      coordinates: [13.0600, 80.2500],
-      createdAt: "2025-04-21"
-    },
-    {
-      id: "dem-3",
-      title: "Community Garden",
-      quantity: 3000,
-      purpose: "Irrigation",
-      status: "Matching",
-      statusColor: "amber",
-      coordinates: [13.0300, 80.2300],
-      createdAt: "2025-04-22"
-    }
-  ],
-  activities: [
-    {
-      id: "act-1",
-      type: "match",
-      title: "New match found",
-      detail: "Factory A → Green Park",
-      time: "2h ago",
-      icon: "link"
-    },
-    {
-      id: "act-2",
-      type: "approval",
-      title: "Demand approved",
-      detail: "Green Park - 4,000 L (Irrigation)",
-      time: "4h ago",
-      icon: "file-text"
-    },
-    {
-      id: "act-3",
-      type: "source",
-      title: "New source added",
-      detail: "STP Plant - 7,000 L",
-      time: "5h ago",
-      icon: "droplet"
-    },
-    {
-      id: "act-4",
-      type: "complete",
-      title: "Match completed",
-      detail: "Apartment Complex → Sports Center",
-      time: "1d ago",
-      icon: "check-circle"
-    }
-  ]
+  sources: [],
+  demands: [],
+  activities: []
 };
 
 export const api = {
@@ -180,7 +67,14 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(demand)
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'create_demand' } }));
+          localStorage.setItem('reloop_last_mutation', String(Date.now()));
+        }
+        return data;
+      }
     } catch (e) {
       console.warn("Backend not reached, using local fallback", e);
     }
@@ -213,6 +107,10 @@ export const api = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to request water allocation');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'request_water' } }));
+        localStorage.setItem('reloop_last_mutation', String(Date.now()));
+      }
       return data;
     } catch (e) {
       console.error("[buyerApi] Error requesting water:", e.message);
@@ -220,12 +118,14 @@ export const api = {
     }
   },
 
-  async requestMatch(sourceId, demandId, quantity, notes) {
+  async requestMatch(sourceId, demandId, quantity, notes, extraFields = {}) {
     return this.requestWater({
       sourceId,
       demandId,
       quantity,
-      notes
+      requestedQuantity: quantity,
+      notes,
+      ...extraFields
     });
   },
 
@@ -259,6 +159,52 @@ export const api = {
       return data;
     } catch (e) {
       console.error("[buyerApi] Error confirming delivery:", e);
+      throw e;
+    }
+  },
+
+  async confirmMatchAgreement(matchId, details = {}) {
+    try {
+      const res = await fetch(`${API_BASE}/buyer/matches/${matchId}/confirm-agreement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(details)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        // Fallback to patch if dedicated endpoint returns 404
+        const fallbackRes = await fetch(`${API_BASE}/buyer/matches/${matchId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'Confirmed', buyerConfirmed: true, ...details })
+        });
+        const fallbackData = await fallbackRes.json();
+        if (!fallbackRes.ok) throw new Error(fallbackData.error || data.error || 'Failed to confirm match');
+        return fallbackData;
+      }
+      return data;
+    } catch (e) {
+      console.error("[buyerApi] Error confirming match agreement:", e);
+      throw e;
+    }
+  },
+
+  async patchMatchStatus(matchId, status, details = {}) {
+    try {
+      const res = await fetch(`${API_BASE}/buyer/matches/${matchId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, ...details })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update match status');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'patch_match_status', matchId, status } }));
+        localStorage.setItem('reloop_last_mutation', String(Date.now()));
+      }
+      return data;
+    } catch (e) {
+      console.error("[buyerApi] Error patching match status:", e);
       throw e;
     }
   },

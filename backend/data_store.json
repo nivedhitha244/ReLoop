@@ -11,187 +11,69 @@
     "weather": {
       "temp": "32°C",
       "condition": "Partly cloudy",
-      "date": "Tue, 22 Apr 2025"
+      "date": "Today"
     }
+  },
+  "sellerProfile": {
+    "id": "seed-supplier-1",
+    "name": "Water Supplier Portal",
+    "organization": "Commercial Water Facilities",
+    "role": "Seller / Water Supplier",
+    "initials": "SP",
+    "email": "supplier@reloop.org",
+    "phone": "+91 98111 22334",
+    "facilityAddress": "OMR Expressway",
+    "city": "Chennai",
+    "region": "Tamil Nadu",
+    "postalCode": "600119",
+    "coordinates": [
+      12.98,
+      80.22
+    ],
+    "operatingHours": "24/7",
+    "contactPerson": "Plant Operations Director"
   },
   "stats": {
-    "totalDemand": 9000,
-    "matchedQuantity": 8000,
-    "matchedPercent": 89,
-    "freshwaterSaved": 8000,
-    "freshwaterSavedEq": 16000,
-    "unmetDemand": 1000,
-    "activeRequestsCount": 1,
-    "transportCost": 3750,
-    "sourcesUsed": 1
+    "totalDemand": 0,
+    "matchedQuantity": 0,
+    "matchedPercent": 0,
+    "freshwaterSaved": 0,
+    "freshwaterSavedEq": 0,
+    "unmetDemand": 0,
+    "activeRequestsCount": 0,
+    "transportCost": 0,
+    "sourcesUsed": 0
   },
-  "sources": [
+  "sources": [],
+  "demands": [],
+  "requests": [],
+  "matches": [],
+  "sellerDocuments": [],
+  "activities": [],
+  "notifications": [],
+  "sellerSources": [],
+  "sellerRequests": [],
+  "sellerMatches": [],
+  "sellerNotifications": [
     {
-      "id": "src-1",
-      "name": "Factory A",
-      "type": "Industrial",
-      "iconType": "factory",
-      "quantity": 5000,
-      "distance": 2.8,
-      "quality": "Verified",
-      "coordinates": [
-        13.0878,
-        80.2785
-      ],
-      "available": true,
-      "description": "Treated cooling tower blowdown, suitable for industrial reuse and irrigation."
-    },
-    {
-      "id": "src-2",
-      "name": "STP Plant",
-      "type": "Treated Wastewater",
-      "iconType": "leaf-water",
-      "quantity": 7000,
-      "distance": 6.5,
-      "quality": "Pending",
-      "coordinates": [
-        13.045,
-        80.24
-      ],
-      "available": true,
-      "description": "Tertiary treated municipal wastewater, lab analysis verification in progress."
-    },
-    {
-      "id": "src-3",
-      "name": "IT Park",
-      "type": "RO Reject Water",
-      "iconType": "building",
-      "quantity": 4000,
-      "distance": 8.1,
-      "quality": "Verified",
-      "coordinates": [
-        12.98,
-        80.22
-      ],
-      "available": true,
-      "description": "High TDS reverse osmosis reject water, suitable for flushing & dust suppression."
-    },
-    {
-      "id": "src-4",
-      "name": "Apartment Complex",
-      "type": "Greywater",
-      "iconType": "apartment",
-      "quantity": 3000,
-      "distance": 4.2,
-      "quality": "Verified",
-      "coordinates": [
-        13.01,
-        80.26
-      ],
-      "available": true,
-      "description": "Residential greywater system filtered through sand & carbon media."
-    }
-  ],
-  "demands": [
-    {
-      "id": "dem-1",
-      "title": "Green Park",
-      "quantity": 4000,
-      "purpose": "Irrigation",
-      "status": "Active",
-      "statusColor": "green",
-      "coordinates": [
-        13.0827,
-        80.2707
-      ],
-      "createdAt": "2025-04-20"
-    },
-    {
-      "id": "dem-2",
-      "title": "Sports Complex",
-      "quantity": 2000,
-      "purpose": "Construction",
-      "status": "Pending",
-      "statusColor": "blue",
-      "coordinates": [
-        13.06,
-        80.25
-      ],
-      "createdAt": "2025-04-21"
-    },
-    {
-      "id": "dem-3",
-      "title": "Community Garden",
-      "quantity": 3000,
-      "purpose": "Irrigation",
-      "status": "Matching",
-      "statusColor": "amber",
-      "coordinates": [
-        13.03,
-        80.23
-      ],
-      "createdAt": "2025-04-22"
-    }
-  ],
-  "matches": [
-    {
-      "id": "mat-1792601870868",
-      "sourceId": "src-1",
-      "sourceName": "Factory A",
-      "demandId": "dem-1",
-      "destinationName": "Green Park",
-      "quantity": 4000,
-      "distance": 2.8,
-      "status": "Matched",
-      "matchedAt": "Just now"
-    },
-    {
-      "id": "mat-1",
-      "sourceId": "src-1",
-      "sourceName": "Factory A",
-      "demandId": "dem-1",
-      "destinationName": "Green Park",
-      "quantity": 4000,
-      "distance": 2.8,
-      "status": "Matched",
-      "matchedAt": "2h ago"
-    }
-  ],
-  "activities": [
-    {
-      "id": "act-1792601870868",
-      "type": "match",
-      "title": "New match confirmed",
-      "detail": "Factory A → Green Park",
+      "id": "notif-s-1792740299102",
+      "title": "New Water Request Received",
+      "message": "Green Park requested 4,000 L from Test STP Water Facility for Irrigation.",
       "time": "Just now",
-      "icon": "link"
+      "timestamp": "2026-10-23T07:24:59.102Z",
+      "read": false,
+      "type": "request",
+      "targetTab": "incoming-requests"
     },
     {
-      "id": "act-1",
-      "type": "match",
-      "title": "New match found",
-      "detail": "Factory A → Green Park",
-      "time": "2h ago",
-      "icon": "link"
-    },
-    {
-      "id": "act-2",
-      "type": "approval",
-      "title": "Demand approved",
-      "detail": "Green Park - 4,000 L (Irrigation)",
-      "time": "4h ago",
-      "icon": "file-text"
-    },
-    {
-      "id": "act-3",
+      "id": "notif-s-1792740299034",
+      "title": "New Water Source Registered",
+      "message": "Test STP Water Facility (10,000 L) registered and submitted for quality verification.",
+      "time": "Just now",
+      "timestamp": "2026-10-23T07:24:59.062Z",
+      "read": false,
       "type": "source",
-      "title": "New source added",
-      "detail": "STP Plant - 7,000 L",
-      "time": "5h ago",
-      "icon": "droplet"
-    },
-    {
-      "id": "act-4",
-      "type": "complete",
-      "title": "Match completed",
-      "detail": "Apartment Complex → Sports Center",
-      "time": "1d ago",
-      "icon": "check-circle"
+      "targetTab": "my-sources"
     }
   ]
 }

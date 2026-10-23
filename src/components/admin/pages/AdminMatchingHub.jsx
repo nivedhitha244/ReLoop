@@ -20,7 +20,7 @@ import StatusBadge from '../common/StatusBadge';
 import ConfirmationDialog from '../common/ConfirmationDialog';
 import SkeletonLoader from '../common/SkeletonLoader';
 
-export default function AdminMatchingHub({ onNavigate, showToast }) {
+export default function AdminMatchingHub({ onNavigate, showToast, refreshTrigger }) {
   const [activeTab, setActiveTab] = useState('candidates'); // 'candidates' | 'existing'
   const [candidates, setCandidates] = useState([]);
   const [existingMatches, setExistingMatches] = useState([]);
@@ -55,15 +55,8 @@ export default function AdminMatchingHub({ onNavigate, showToast }) {
       if (!res.ok) throw new Error('Candidate generation failed');
       const json = await res.json();
       setCandidates(json.candidates || []);
-      if (showToast) {
-        showToast({
-          type: 'success',
-          message: `Generated ${json.count || 0} candidate matches based on proximity and quality.`,
-        });
-      }
     } catch (err) {
       console.error('Error generating candidates:', err);
-      if (showToast) showToast({ type: 'error', message: err.message });
     } finally {
       setGenerating(false);
       setLoading(false);
@@ -73,7 +66,7 @@ export default function AdminMatchingHub({ onNavigate, showToast }) {
   useEffect(() => {
     runCandidateGeneration();
     fetchExistingMatches();
-  }, [statusFilter]);
+  }, [statusFilter, refreshTrigger]);
 
   // Execute Match Approval
   const handleApproveConfirm = async (notes) => {
@@ -100,9 +93,10 @@ export default function AdminMatchingHub({ onNavigate, showToast }) {
       }
 
       setApproveModal({ isOpen: false, candidate: null });
-      // Refresh candidates and existing matches
       runCandidateGeneration();
       fetchExistingMatches();
+      window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'admin_match_approved' } }));
+      localStorage.setItem('reloop_last_mutation', String(Date.now()));
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.message });
     } finally {
@@ -127,6 +121,8 @@ export default function AdminMatchingHub({ onNavigate, showToast }) {
       if (showToast) showToast({ type: 'success', message: 'Match successfully rejected.' });
       setRejectModal({ isOpen: false, match: null });
       fetchExistingMatches();
+      window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'admin_match_rejected' } }));
+      localStorage.setItem('reloop_last_mutation', String(Date.now()));
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.message });
     } finally {
@@ -156,6 +152,8 @@ export default function AdminMatchingHub({ onNavigate, showToast }) {
       }
       setOverrideModal({ isOpen: false, match: null });
       fetchExistingMatches();
+      window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'admin_match_overridden' } }));
+      localStorage.setItem('reloop_last_mutation', String(Date.now()));
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.message });
     } finally {

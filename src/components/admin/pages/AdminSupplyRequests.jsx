@@ -18,7 +18,7 @@ import StatusBadge from '../common/StatusBadge';
 import SkeletonLoader from '../common/SkeletonLoader';
 import ConfirmationDialog from '../common/ConfirmationDialog';
 
-export default function AdminSupplyRequests({ onNavigate, showToast, globalSearch = '' }) {
+export default function AdminSupplyRequests({ onNavigate, showToast, globalSearch = '', refreshTrigger }) {
   const [activeTab, setActiveTab] = useState('suppliers'); // 'suppliers' | 'requests'
   const [listings, setListings] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -36,9 +36,9 @@ export default function AdminSupplyRequests({ onNavigate, showToast, globalSearc
 
   const effectiveSearch = globalSearch || localSearch;
 
-  const fetchData = async () => {
+  const fetchData = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const [listRes, reqRes] = await Promise.all([
         fetch('/api/suppliers/listings'),
         fetch('/api/requests'),
@@ -60,8 +60,8 @@ export default function AdminSupplyRequests({ onNavigate, showToast, globalSearc
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(listings.length > 0 || requests.length > 0);
+  }, [refreshTrigger]);
 
   // Filter listings
   const filteredListings = listings.filter((l) => {
@@ -120,6 +120,8 @@ export default function AdminSupplyRequests({ onNavigate, showToast, globalSearc
       }
       setConfirmModal({ isOpen: false, item: null, action: '' });
       fetchData();
+      window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'admin_supply_request_updated' } }));
+      localStorage.setItem('reloop_last_mutation', String(Date.now()));
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.message });
     } finally {

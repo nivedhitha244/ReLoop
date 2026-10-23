@@ -23,7 +23,7 @@ import {
   SellerRescueModal 
 } from './SellerModals';
 import { sellerApi } from '../../services/sellerApi';
-import { CheckCircle2, Info, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Info, AlertCircle, X } from 'lucide-react';
 import '../../dashboard.css';
 import './SellerDashboard.css';
 
@@ -115,6 +115,33 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
 
   useEffect(() => {
     loadDashboardData();
+
+    // Live sync: background polling every 3 seconds for near real-time updates without manual refresh
+    const pollInterval = setInterval(() => {
+      loadDashboardData();
+    }, 3000);
+
+    // Live sync: instant reload on window focus, tab visibility change, or cross-tab mutation
+    const handleSync = () => loadDashboardData();
+    const handleStorage = (e) => {
+      if (e.key === 'reloop_last_mutation') loadDashboardData();
+    };
+
+    window.addEventListener('focus', handleSync);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadDashboardData();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('reloop:data_updated', handleSync);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('reloop:data_updated', handleSync);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   const unreadCount = (notifications || []).filter(n => !n.read).length;
@@ -236,10 +263,22 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
       {/* Toast Notification Alert */}
       {toast && (
         <div className={`reloop-toast toast-${toast.type}`}>
-          {toast.type === 'success' && <CheckCircle2 size={18} className="toast-icon text-emerald-500" />}
-          {toast.type === 'info' && <Info size={18} className="toast-icon text-blue-500" />}
-          {toast.type === 'error' && <AlertCircle size={18} className="toast-icon text-red-500" />}
-          <span>{toast.message}</span>
+          <div className="toast-icon-wrap">
+            {toast.type === 'success' && <CheckCircle2 size={18} className="toast-icon text-emerald-600" />}
+            {toast.type === 'info' && <Info size={18} className="toast-icon text-sky-600" />}
+            {toast.type === 'error' && <AlertCircle size={18} className="toast-icon text-rose-600" />}
+          </div>
+          <div className="toast-content">
+            <span className="toast-message">{toast.message}</span>
+          </div>
+          <button 
+            type="button" 
+            className="toast-close-btn" 
+            onClick={() => setToast(null)}
+            aria-label="Dismiss notification"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
 
@@ -450,18 +489,6 @@ export default function SellerDashboard({ currentUser, onLogout, onSwitchPortal 
         sources={sources}
         onTriggerRescue={handleTriggerRescue}
       />
-
-      {/* Dynamic Toast Feedback Notification */}
-      {toast && (
-        <div className={`seller-toast-banner ${toast.type}`}>
-          {toast.type === 'error' ? (
-            <AlertCircle size={18} />
-          ) : (
-            <CheckCircle2 size={18} />
-          )}
-          <span>{toast.message}</span>
-        </div>
-      )}
     </div>
   );
 }

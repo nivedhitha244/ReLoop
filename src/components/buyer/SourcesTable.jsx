@@ -10,11 +10,12 @@ import {
   Droplet 
 } from 'lucide-react';
 
-export default function SourcesTable({ sources, onRequestClick, onViewAll }) {
-  const getSourceIcon = (iconType, name) => {
-    if (name.includes('STP')) return <Leaf size={16} className="text-emerald-600" />;
-    if (name.includes('IT Park')) return <Building2 size={16} className="text-blue-600" />;
-    if (name.includes('Apartment')) return <Home size={16} className="text-sky-600" />;
+export default function SourcesTable({ sources = [], onRequestClick, onViewAll }) {
+  const getSourceIcon = (iconType, name = '') => {
+    const n = String(name || '');
+    if (n.includes('STP')) return <Leaf size={16} className="text-emerald-600" />;
+    if (n.includes('IT Park')) return <Building2 size={16} className="text-blue-600" />;
+    if (n.includes('Apartment')) return <Home size={16} className="text-sky-600" />;
     return <Factory size={16} className="text-blue-600" />;
   };
 
@@ -44,44 +45,62 @@ export default function SourcesTable({ sources, onRequestClick, onViewAll }) {
             </tr>
           </thead>
           <tbody>
-            {sources.map((src) => (
-              <tr key={src.id} className="source-table-row">
-                <td className="td-source-name">
-                  <div className="source-icon-cell">
-                    <div className="source-avatar-icon">
-                      {getSourceIcon(src.iconType, src.name)}
-                    </div>
-                    <span className="source-label-text">{src.name}</span>
-                  </div>
-                </td>
-                <td className="td-type">{src.type}</td>
-                <td className="td-quantity">
-                  <strong>{src.quantity.toLocaleString()} L</strong>
-                </td>
-                <td className="td-distance">{src.distance} km</td>
-                <td className="td-quality">
-                  <span className={`quality-badge badge-${src.quality.toLowerCase()}`}>
-                    {src.quality === 'Verified' ? (
-                      <CheckCircle2 size={12} className="badge-icon" />
-                    ) : (
-                      <Clock size={12} className="badge-icon" />
-                    )}
-                    {src.quality}
-                  </span>
-                </td>
-                <td className="td-action">
-                  <button 
-                    className="request-btn"
-                    onClick={() => onRequestClick(src)}
-                  >
-                    Request
-                  </button>
-                </td>
-                <td className="td-chevron">
-                  <ChevronRight size={16} className="row-chevron-icon" />
+            {!sources || sources.length === 0 ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '36px 16px', color: '#64748b' }}>
+                  <Droplet size={28} style={{ margin: '0 auto 8px', color: '#94a3b8' }} />
+                  <p style={{ fontWeight: 600, margin: '0 0 4px', color: '#334155' }}>No water sources registered yet</p>
+                  <span style={{ fontSize: '13px' }}>Switch to the <strong>Supplier Portal</strong> to register a water source, and it will appear here immediately!</span>
                 </td>
               </tr>
-            ))}
+            ) : (
+              sources.map((src) => {
+                const quality = src.quality || src.verificationStatus || 'Verified';
+                const quantity = Number(src.quantity ?? src.availableQuantity ?? 0);
+                const distance = src.distance !== undefined ? src.distance : 5.5;
+                const srcName = src.name || src.sourceName || 'Water Source';
+                const srcType = src.type || src.waterCategory || src.category || 'Recycled Water';
+
+                return (
+                  <tr key={src.id || src._id || Math.random()} className="source-table-row">
+                    <td className="td-source-name">
+                      <div className="source-icon-cell">
+                        <div className="source-avatar-icon">
+                          {getSourceIcon(src.iconType, srcName)}
+                        </div>
+                        <span className="source-label-text">{srcName}</span>
+                      </div>
+                    </td>
+                    <td className="td-type">{srcType}</td>
+                    <td className="td-quantity">
+                      <strong>{quantity.toLocaleString()} L</strong>
+                    </td>
+                    <td className="td-distance">{distance} km</td>
+                    <td className="td-quality">
+                      <span className={`quality-badge badge-${(quality || 'verified').toLowerCase()}`}>
+                        {quality === 'Verified' ? (
+                          <CheckCircle2 size={12} className="badge-icon" />
+                        ) : (
+                          <Clock size={12} className="badge-icon" />
+                        )}
+                        {quality}
+                      </span>
+                    </td>
+                    <td className="td-action">
+                      <button 
+                        className="request-btn"
+                        onClick={() => onRequestClick && onRequestClick(src)}
+                      >
+                        Request
+                      </button>
+                    </td>
+                    <td className="td-chevron">
+                      <ChevronRight size={16} className="row-chevron-icon" />
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

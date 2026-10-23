@@ -58,7 +58,7 @@ function createCustomIcon(type, category) {
   });
 }
 
-export default function AdminLogisticsMap({ onNavigate, globalSearch = '' }) {
+export default function AdminLogisticsMap({ onNavigate, globalSearch = '', refreshTrigger }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
@@ -74,9 +74,9 @@ export default function AdminLogisticsMap({ onNavigate, globalSearch = '' }) {
   const effectiveSearch = globalSearch || localSearch;
 
   // Fetch Logistics Locations
-  const fetchLocations = async () => {
+  const fetchLocations = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const res = await fetch('/api/admin/map/locations');
       if (!res.ok) throw new Error('Failed to load logistics locations');
       const json = await res.json();
@@ -89,8 +89,8 @@ export default function AdminLogisticsMap({ onNavigate, globalSearch = '' }) {
   };
 
   useEffect(() => {
-    fetchLocations();
-  }, []);
+    fetchLocations(mapData.suppliers.length > 0);
+  }, [refreshTrigger]);
 
   // Initialize Leaflet Map
   useEffect(() => {

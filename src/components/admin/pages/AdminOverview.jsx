@@ -36,15 +36,15 @@ import SkeletonLoader from '../common/SkeletonLoader';
 
 const REUSE_COLORS = ['#0c6e5d', '#0284c7', '#38bdf8', '#10b981', '#f59e0b'];
 
-export default function AdminOverview({ onNavigate, globalSearch }) {
+export default function AdminOverview({ onNavigate, globalSearch, refreshTrigger }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchOverview = async () => {
+  const fetchOverview = async (isBackground = false) => {
     try {
-      setRefreshing(true);
+      if (!isBackground) setRefreshing(true);
       const res = await fetch('/api/admin/overview');
       if (!res.ok) throw new Error('Failed to load metrics from server');
       const json = await res.json();
@@ -52,7 +52,7 @@ export default function AdminOverview({ onNavigate, globalSearch }) {
       setError(null);
     } catch (err) {
       console.error('Error fetching overview:', err);
-      setError(err.message);
+      if (!isBackground) setError(err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -60,8 +60,8 @@ export default function AdminOverview({ onNavigate, globalSearch }) {
   };
 
   useEffect(() => {
-    fetchOverview();
-  }, []);
+    fetchOverview(Boolean(data));
+  }, [refreshTrigger]);
 
   if (loading) {
     return (

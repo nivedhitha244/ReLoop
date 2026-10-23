@@ -115,95 +115,90 @@ export default function WaterMap({ sources = [], demands = [], onRequestSource }
       });
     };
 
-    // Buyer Destination: Green Park
-    const greenParkMarker = L.marker(greenParkCoord, {
-      icon: createMarkerIcon('#10b981', true)
-    }).addTo(markersLayerRef.current);
+    const allCoords = [];
+    let firstSourceCoord = null;
+    let firstDemandCoord = null;
 
-    greenParkMarker.bindPopup(`
-      <div class="map-custom-card green-park-bubble">
-        <div class="card-tag dest-tag">Destination</div>
-        <div class="card-name">Green Park</div>
-        <div class="card-stat">Needs <strong>4,000 L</strong> · 2.8 km</div>
-      </div>
-    `);
+    // Render registered water sources
+    sources.forEach((src, idx) => {
+      const coord = Array.isArray(src.coordinates) && src.coordinates.length === 2
+        ? src.coordinates
+        : [13.0450 + (((idx * 7) % 9) * 0.012 - 0.04), 80.2450 + (((idx * 5) % 8) * 0.015 - 0.04)];
+      
+      allCoords.push(coord);
+      if (!firstSourceCoord) firstSourceCoord = coord;
 
-    // Factory A Source
-    const factoryAMarker = L.marker(factoryACoord, {
-      icon: createMarkerIcon('#0284c7', false)
-    }).addTo(markersLayerRef.current);
+      const marker = L.marker(coord, {
+        icon: createMarkerIcon('#0284c7', false)
+      }).addTo(markersLayerRef.current);
 
-    factoryAMarker.bindPopup(`
-      <div class="map-custom-card source-bubble">
-        <div class="card-tag source-tag">Water Source</div>
-        <div class="card-name">Factory A</div>
-        <div class="card-stat"><strong>5,000 L</strong> available · 2.8 km</div>
-      </div>
-    `);
+      marker.bindPopup(`
+        <div class="map-custom-card source-bubble">
+          <div class="card-tag source-tag">${src.type || 'Water Source'}</div>
+          <div class="card-name">${src.name}</div>
+          <div class="card-stat"><strong>${(src.quantity || 0).toLocaleString()} L</strong> available · ${src.distance || 3.5} km</div>
+        </div>
+      `);
 
-    // STP Plant
-    const stpMarker = L.marker(stpPlantCoord, {
-      icon: createMarkerIcon('#0284c7', false)
-    }).addTo(markersLayerRef.current);
-    stpMarker.bindPopup(`
-      <div class="map-custom-card source-bubble">
-        <div class="card-tag source-tag">Treated Wastewater</div>
-        <div class="card-name">STP Plant</div>
-        <div class="card-stat"><strong>7,000 L</strong> available · 6.5 km</div>
-      </div>
-    `);
-
-    // Apartment Complex
-    const aptMarker = L.marker(aptComplexCoord, {
-      icon: createMarkerIcon('#0284c7', false)
-    }).addTo(markersLayerRef.current);
-    aptMarker.bindPopup(`
-      <div class="map-custom-card source-bubble">
-        <div class="card-tag source-tag">Greywater</div>
-        <div class="card-name">Apartment Complex</div>
-        <div class="card-stat"><strong>3,000 L</strong> available · 4.2 km</div>
-      </div>
-    `);
-
-    // IT Park
-    const itParkMarker = L.marker(itParkCoord, {
-      icon: createMarkerIcon('#0284c7', false)
-    }).addTo(markersLayerRef.current);
-    itParkMarker.bindPopup(`
-      <div class="map-custom-card source-bubble">
-        <div class="card-tag source-tag">RO Reject Water</div>
-        <div class="card-name">IT Park</div>
-        <div class="card-stat"><strong>4,000 L</strong> available · 8.1 km</div>
-      </div>
-    `);
-
-    // Automatically open Factory A popup as default active match
-    factoryAMarker.openPopup();
-
-    // 3. Fetch Road-Calibrated Route between Factory A and Green Park
-    let isCancelled = false;
-    fetchRoadRoute(factoryACoord, greenParkCoord).then(res => {
-      if (isCancelled || !routeLayerRef.current) return;
-
-      const polyline = L.polyline(res.polylineCoords, {
-        color: '#0284c7',
-        weight: 3.8,
-        opacity: 0.9,
-        dashArray: '6, 8',
-        lineCap: 'round',
-        lineJoin: 'round'
-      }).addTo(routeLayerRef.current);
-
-      polyline.bindTooltip(`
-        <strong>Factory A → Green Park</strong><br/>
-        Road Route: ${res.roadDistanceKm} km · Transit: ~${res.durationMin} mins
-      `, { sticky: true });
+      if (idx === 0) {
+        marker.openPopup();
+      }
     });
+
+    // Render registered buyer demands
+    demands.forEach((dem, idx) => {
+      const coord = Array.isArray(dem.coordinates) && dem.coordinates.length === 2
+        ? dem.coordinates
+        : [13.0550 + (((idx * 6) % 7) * 0.012 - 0.03), 80.2520 + (((idx * 4) % 6) * 0.014 - 0.03)];
+
+      allCoords.push(coord);
+      if (!firstDemandCoord) firstDemandCoord = coord;
+
+      const marker = L.marker(coord, {
+        icon: createMarkerIcon('#10b981', true)
+      }).addTo(markersLayerRef.current);
+
+      marker.bindPopup(`
+        <div class="map-custom-card green-park-bubble">
+          <div class="card-tag dest-tag">Destination</div>
+          <div class="card-name">${dem.title}</div>
+          <div class="card-stat">Needs <strong>${(dem.quantity || dem.requiredQuantity || 0).toLocaleString()} L</strong> · ${dem.purpose || 'Reuse'}</div>
+        </div>
+      `);
+    });
+
+    // Dynamically adjust map bounds if items exist
+    if (allCoords.length > 0) {
+      const bounds = L.latLngBounds(allCoords);
+      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+    }
+
+    // Road route between first source and first demand if both exist
+    let isCancelled = false;
+    if (firstSourceCoord && firstDemandCoord) {
+      fetchRoadRoute(firstSourceCoord, firstDemandCoord).then(res => {
+        if (isCancelled || !routeLayerRef.current) return;
+
+        const polyline = L.polyline(res.polylineCoords, {
+          color: '#0284c7',
+          weight: 3.8,
+          opacity: 0.9,
+          dashArray: '6, 8',
+          lineCap: 'round',
+          lineJoin: 'round'
+        }).addTo(routeLayerRef.current);
+
+        polyline.bindTooltip(`
+          <strong>${sources[0]?.name || 'Source'} → ${demands[0]?.title || 'Destination'}</strong><br/>
+          Road Route: ${res.roadDistanceKm} km · Transit: ~${res.durationMin} mins
+        `, { sticky: true });
+      });
+    }
 
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [sources, demands]);
 
   const handleRecenter = () => {
     if (mapInstanceRef.current) {
@@ -236,11 +231,11 @@ export default function WaterMap({ sources = [], demands = [], onRequestSource }
       <div className="map-legend-bar">
         <div className="legend-item">
           <span className="legend-dot dot-source"></span>
-          <span className="legend-text">Water Source</span>
+          <span className="legend-text">Water Source ({sources.length})</span>
         </div>
         <div className="legend-item">
           <span className="legend-dot dot-dest"></span>
-          <span className="legend-text">Destination</span>
+          <span className="legend-text">Destination ({demands.length})</span>
         </div>
         <div className="legend-item">
           <span className="legend-line line-route"></span>
@@ -252,30 +247,43 @@ export default function WaterMap({ sources = [], demands = [], onRequestSource }
       <div className="leaflet-map-wrapper">
         <div ref={mapContainerRef} className="map-canvas-element" />
 
-        {/* Floating overlays matching mockup */}
-        <div className="map-floating-pill pill-factory">
-          <div className="pill-icon-water">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#0284c7">
-              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-            </svg>
+        {/* Dynamic floating overlays based on active state */}
+        {sources.length > 0 && (
+          <div className="map-floating-pill pill-factory">
+            <div className="pill-icon-water">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#0284c7">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+              </svg>
+            </div>
+            <div className="pill-body">
+              <div className="pill-title">{sources[0].name}</div>
+              <div className="pill-meta">{(sources[0].quantity || 0).toLocaleString()} L available · {sources[0].distance || 3.5} km</div>
+            </div>
           </div>
-          <div className="pill-body">
-            <div className="pill-title">Factory A</div>
-            <div className="pill-meta">5,000 L available · 2.8 km</div>
-          </div>
-        </div>
+        )}
 
-        <div className="map-floating-pill pill-greenpark">
-          <div className="pill-icon-leaf">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#10b981">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
+        {demands.length > 0 && (
+          <div className="map-floating-pill pill-greenpark">
+            <div className="pill-icon-leaf">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#10b981">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <div className="pill-body">
+              <div className="pill-title">{demands[0].title}</div>
+              <div className="pill-meta">Needs {(demands[0].quantity || demands[0].requiredQuantity || 0).toLocaleString()} L · {demands[0].purpose || 'Reuse'}</div>
+            </div>
           </div>
-          <div className="pill-body">
-            <div className="pill-title">Green Park</div>
-            <div className="pill-meta">Needs 4,000 L · 2.8 km</div>
+        )}
+
+        {sources.length === 0 && demands.length === 0 && (
+          <div className="map-floating-pill" style={{ left: '50%', transform: 'translateX(-50%)', bottom: '16px', background: 'rgba(255,255,255,0.92)', border: '1px solid #cbd5e1', padding: '6px 14px', borderRadius: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+            <div className="pill-body" style={{ textAlign: 'center' }}>
+              <div className="pill-title" style={{ fontSize: '12px', color: '#475569' }}>Chennai ReLoop Corridor</div>
+              <div className="pill-meta" style={{ fontSize: '11px', color: '#64748b' }}>Register sources or demands to see live geographic routing</div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

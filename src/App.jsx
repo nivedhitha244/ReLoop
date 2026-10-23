@@ -12,6 +12,7 @@ import {
   Shield,
 } from "lucide-react";
 import "./App.css";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 import WaterDashboard from "./components/WaterDashboard";
 import BuyerDashboard from "./components/buyer/BuyerDashboard";
 import AdminLayout from "./components/admin/AdminLayout";
@@ -147,8 +148,26 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState(null);
 
-  // Authenticated state
-  const [currentUser, setCurrentUser] = useState(null);
+  // Authenticated state (persisted to localStorage so refreshes do not kick user out)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('reloop_logged_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      if (currentUser) {
+        localStorage.setItem('reloop_logged_user', JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem('reloop_logged_user');
+      }
+    } catch {}
+  }, [currentUser]);
+
   const [activePortalView, setActivePortalView] = useState('auto'); // 'auto' | 'hub' | 'buyer'
 
   // Clicking a role ONLY updates the selection state without modifying input values
@@ -395,6 +414,9 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    try {
+      localStorage.removeItem('reloop_logged_user');
+    } catch {}
     setCurrentUser(null);
     setSelectedRole(null);
     setActivePortalView('auto');
@@ -405,27 +427,32 @@ export default function App() {
 
   // Show the appropriate dashboard for the logged-in user.
   if (currentUser) {
+    let dashboardComponent = null;
+
     if (currentUser.role === "admin") {
-      return (
+      dashboardComponent = (
         <AdminLayout
           currentUser={currentUser}
           onLogout={handleLogout}
         />
       );
-    }
-
-    if (currentUser.role === "buyer") {
-      return (
+    } else if (currentUser.role === "buyer") {
+      dashboardComponent = (
         <BuyerDashboard
           currentUser={currentUser}
           onLogout={handleLogout}
         />
       );
-    }
-
-    if (currentUser.role === "supplier" || currentUser.role === "seller") {
-      return (
+    } else if (currentUser.role === "supplier" || currentUser.role === "seller") {
+      dashboardComponent = (
         <SellerDashboard
+          currentUser={currentUser}
+          onLogout={handleLogout}
+        />
+      );
+    } else {
+      dashboardComponent = (
+        <WaterDashboard
           currentUser={currentUser}
           onLogout={handleLogout}
         />
@@ -433,10 +460,9 @@ export default function App() {
     }
 
     return (
-      <WaterDashboard
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      />
+      <ErrorBoundary>
+        {dashboardComponent}
+      </ErrorBoundary>
     );
   }
 

@@ -6,10 +6,85 @@ import { isDbConnected } from '../db.js';
 import { SupplierListing } from '../models/SupplierListing.js';
 import { BuyerRequest } from '../models/BuyerRequest.js';
 import { Match } from '../models/Match.js';
+import { Delivery } from '../models/Delivery.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DB_FILE = path.join(__dirname, '..', 'data_store.json');
+
+export async function syncMongoRequest(request) {
+  if (!isDbConnected() || !request) return;
+  try {
+    await BuyerRequest.findOneAndUpdate(
+      { requestCode: request.id },
+      {
+        requestCode: request.id,
+        buyerName: request.buyerName || request.buyerOrg || 'Green Park',
+        title: request.demandTitle || `Request for ${request.sourceName || 'Water'}`,
+        waterCategory: request.intendedReuse || 'Treated Wastewater',
+        requiredQuantity: Number(request.requestedQuantity) || 4000,
+        fulfilledQuantity: (request.status === 'Confirmed' || request.status === 'Completed') ? (Number(request.requestedQuantity) || 4000) : 0,
+        purpose: request.intendedReuse || 'General Reuse',
+        intendedUse: request.intendedReuse || 'General Reuse',
+        status: request.status || 'Pending',
+        matchingStatus: (request.status === 'Confirmed' || request.status === 'Accepted') ? 'Matched' : 'In Review',
+        deliveryLocation: {
+          address: request.deliveryLocation || 'Chennai, Tamil Nadu',
+          coordinates: request.coordinates || [13.0418, 80.2341]
+        }
+      },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    console.warn('[MongoSync] Request sync error:', err.message);
+  }
+}
+
+export async function syncMongoMatch(match) {
+  if (!isDbConnected() || !match) return;
+  try {
+    await Match.findOneAndUpdate(
+      { matchCode: match.id },
+      {
+        matchCode: match.id,
+        sourceId: match.sourceId || 'src-1',
+        sourceName: match.sourceName || 'Water Source',
+        demandId: match.demandId || 'dem-1',
+        destinationName: match.destinationName || match.buyerName || 'Green Park',
+        quantity: Number(match.matchedQuantity || match.quantity) || 4000,
+        matchedQuantity: Number(match.matchedQuantity || match.quantity) || 4000,
+        distanceKm: Number(match.distanceKm || match.distance) || 5.5,
+        waterCategory: match.intendedReuse || 'Treated Wastewater',
+        matchScore: 95,
+        status: match.status === 'Confirmed' ? 'Admin Approved' : (match.status || 'Scheduled'),
+        deliveryReference: match.deliveryRef || `DLV-${match.id}`,
+        driverName: match.driverName || 'Senthil Kumar (TN-09-CV-8841)',
+        driverPhone: match.driverPhone || '+91 97890 44556',
+      },
+      { upsert: true, new: true }
+    );
+
+    await Delivery.findOneAndUpdate(
+      { deliveryCode: match.deliveryRef || `DLV-${match.id}` },
+      {
+        deliveryCode: match.deliveryRef || `DLV-${match.id}`,
+        sourceName: match.sourceName || 'Water Source',
+        destinationName: match.destinationName || match.buyerName || 'Green Park',
+        transporterName: 'EcoFlow Logistics Fleet',
+        driverName: match.driverName || 'Senthil Kumar (TN-09-CV-8841)',
+        vehicleNumber: (match.driverName && match.driverName.includes('(')) ? match.driverName.match(/\(([^)]+)\)/)?.[1] || 'TN-09-CV-8841' : 'TN-09-CV-8841',
+        quantity: Number(match.matchedQuantity || match.quantity) || 4000,
+        status: match.status === 'Completed' ? 'Completed' : (match.status === 'In Transit' ? 'In Transit' : 'Scheduled'),
+        pickupLocation: { name: match.pickupLocation || 'Supplier Dock', coordinates: [12.9800, 80.2200] },
+        deliveryLocation: { name: match.destinationLocation || match.buyerName, coordinates: [13.0827, 80.2707] },
+        estimatedDistanceKm: Number(match.distanceKm || match.distance) || 5.5,
+      },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    console.warn('[MongoSync] Match/Delivery sync error:', err.message);
+  }
+}
 
 // Serialized concurrency mutex lock to prevent race conditions during inventory allocations
 class AsyncLock {
@@ -98,169 +173,8 @@ function ensureCanonicalStructure(db) {
   // If sellerSources has entries not in sources, merge them in
   const sourceMap = new Map();
 
-  // First seed standard verified & available sources
-  const defaultSources = [
-    {
-      id: "src-seller-1",
-      name: "Apex Tech Park STP",
-      supplierId: "seed-supplier-1",
-      supplierName: "Apex Commercial Facilities Ltd.",
-      type: "Treated Wastewater",
-      category: "STP Treated Effluent",
-      totalRegisteredQuantity: 15000,
-      quantity: 9000,
-      reservedQuantity: 0,
-      deliveredQuantity: 6000,
-      minSupply: 1000,
-      maxSupply: 15000,
-      location: "Sholinganallur, OMR, Chennai",
-      coordinates: [12.9800, 80.2200],
-      intendedUses: ["Landscaping", "HVAC Cooling", "Construction", "Toilet Flushing", "Irrigation"],
-      quality: "Verified",
-      verificationStatus: "Verified",
-      availabilityStatus: "Available",
-      available: true,
-      reportExpiry: "2027-04-15",
-      lastUpdated: "2026-10-22",
-      description: "State-of-the-art Membrane Bioreactor (MBR) followed by UV disinfection, yielding clear, low-turbidity non-potable water.",
-      indicativePrice: "₹0.12/L",
-      pricePerLitre: 0.12,
-      replenishmentSchedule: "Daily continuous output (~12,000 L/day)",
-      labReport: {
-        certId: "LAB-2026-098",
-        labName: "AquaCert Labs Quality Assurance",
-        testDate: "2026-09-15",
-        expiryDate: "2027-04-15",
-        status: "Verified",
-        ph: 7.2,
-        turbidity: "1.1 NTU",
-        tds: "410 ppm",
-        bod: "4.2 mg/L",
-        cod: "18 mg/L",
-        notes: "Compliant with CPCB Class B Standards for non-contact reuse."
-      }
-    },
-    {
-      id: "src-seller-2",
-      name: "Factory A Cooling Blowdown",
-      supplierId: "seed-supplier-1",
-      supplierName: "Apex Commercial Facilities Ltd.",
-      type: "Industrial",
-      category: "Industrial Cooling Effluent",
-      totalRegisteredQuantity: 8000,
-      quantity: 5000,
-      reservedQuantity: 0,
-      deliveredQuantity: 3000,
-      minSupply: 2000,
-      maxSupply: 8000,
-      location: "Ambattur Industrial Estate, Chennai",
-      coordinates: [13.0878, 80.2785],
-      intendedUses: ["Industrial Cooling", "Dust Suppression", "Ash Handling", "Construction", "Concrete Curing"],
-      quality: "Verified",
-      verificationStatus: "Verified",
-      availabilityStatus: "Available",
-      available: true,
-      reportExpiry: "2027-02-28",
-      lastUpdated: "2026-10-22",
-      description: "Secondary blowdown from closed-loop cooling towers, filtered and neutral pH.",
-      indicativePrice: "₹0.09/L",
-      pricePerLitre: 0.09,
-      replenishmentSchedule: "Weekly batch replenishment (8,000 L every Friday)",
-      labReport: {
-        certId: "LAB-2026-044",
-        labName: "State Environmental Testing Laboratory",
-        testDate: "2026-08-20",
-        expiryDate: "2027-02-28",
-        status: "Verified",
-        ph: 7.5,
-        turbidity: "1.8 NTU",
-        tds: "680 ppm",
-        bod: "6.0 mg/L",
-        cod: "24 mg/L",
-        notes: "Approved for thermal power and manufacturing site reuse."
-      }
-    },
-    {
-      id: "src-seller-3",
-      name: "Apex Central Greywater Bank",
-      supplierId: "seed-supplier-1",
-      supplierName: "Apex Commercial Facilities Ltd.",
-      type: "Greywater",
-      category: "Residential & Commercial Greywater",
-      totalRegisteredQuantity: 6000,
-      quantity: 3500,
-      reservedQuantity: 0,
-      deliveredQuantity: 0,
-      minSupply: 1000,
-      maxSupply: 6000,
-      location: "Perungudi Tech Zone, Chennai",
-      coordinates: [12.9650, 80.2420],
-      intendedUses: ["Irrigation", "Park Maintenance", "Road Washing", "Landscaping"],
-      quality: "Pending Review",
-      verificationStatus: "Pending Verification",
-      availabilityStatus: "Pending Verification",
-      available: false,
-      reportExpiry: "Awaiting Lab Clearance",
-      lastUpdated: "2026-10-22",
-      description: "Filtered sink and wash water treated through activated sand and dual-stage carbon filters.",
-      indicativePrice: "₹0.08/L",
-      pricePerLitre: 0.08,
-      replenishmentSchedule: "Daily 3,000 L generation",
-      labReport: {
-        certId: "LAB-2026-112",
-        labName: "Metropolitan Testing Facility",
-        testDate: "2026-10-18",
-        expiryDate: "2027-04-18",
-        status: "Pending Review",
-        ph: 6.9,
-        turbidity: "3.2 NTU",
-        tds: "530 ppm",
-        bod: "8.5 mg/L",
-        cod: "32 mg/L",
-        notes: "Audit sample submitted on 18 Oct 2026. Awaiting final bacterial pathogen panel."
-      }
-    },
-    {
-      id: "src-seller-4",
-      name: "North Yard Rainwater Reservoir",
-      supplierId: "seed-supplier-1",
-      supplierName: "Apex Commercial Facilities Ltd.",
-      type: "Rainwater",
-      category: "Harvested Rainwater",
-      totalRegisteredQuantity: 10000,
-      quantity: 0,
-      reservedQuantity: 0,
-      deliveredQuantity: 0,
-      minSupply: 1500,
-      maxSupply: 10000,
-      location: "Kattankulathur Catchment, Chennai",
-      coordinates: [12.8230, 80.0450],
-      intendedUses: ["Landscaping", "Construction"],
-      quality: "Expired Documentation",
-      verificationStatus: "Expired Documentation",
-      availabilityStatus: "Unavailable",
-      available: false,
-      reportExpiry: "2026-09-01 (Expired)",
-      lastUpdated: "2026-09-15",
-      description: "Surface retention reservoir. Temporarily suspended pending post-monsoon water testing audit.",
-      indicativePrice: "₹0.10/L",
-      pricePerLitre: 0.10,
-      replenishmentSchedule: "Seasonal rainwater catchment",
-      labReport: {
-        certId: "LAB-2025-089",
-        labName: "EcoSafe Laboratory Solutions",
-        testDate: "2025-08-25",
-        expiryDate: "2026-09-01",
-        status: "Expired",
-        ph: 7.1,
-        turbidity: "2.5 NTU",
-        tds: "220 ppm",
-        bod: "3.0 mg/L",
-        cod: "12 mg/L",
-        notes: "Documentation expired. Requires re-certification before matches can be fulfilled."
-      }
-    }
-  ];
+  // Clean state: no artificial default demo sources
+  const defaultSources = [];
 
   // Index existing sources
   for (const s of defaultSources) {
@@ -282,7 +196,8 @@ function ensureCanonicalStructure(db) {
 
   for (const s of db.sources) {
     if (sourceMap.has(s.id)) {
-      sourceMap.set(s.id, { ...sourceMap.get(s.id), ...s });
+      // Merge keeping detailed seller source fields authoritative
+      sourceMap.set(s.id, { ...s, ...sourceMap.get(s.id) });
     } else {
       sourceMap.set(s.id, {
         totalRegisteredQuantity: s.totalRegisteredQuantity || s.quantity || 5000,
@@ -291,6 +206,8 @@ function ensureCanonicalStructure(db) {
         supplierId: "seed-supplier-1",
         supplierName: "Apex Commercial Facilities Ltd.",
         verificationStatus: s.quality || "Verified",
+        quality: s.quality || "Verified",
+        available: s.available !== undefined ? s.available : true,
         ...s
       });
     }
@@ -307,6 +224,13 @@ function ensureCanonicalStructure(db) {
     // Available quantity is clamped non-negative
     s.quantity = Math.max(0, s.totalRegisteredQuantity - s.reservedQuantity - s.deliveredQuantity);
     s.availableQuantity = s.quantity;
+    if (s.distance === undefined) s.distance = 5.5;
+    s.quality = s.quality || s.verificationStatus || 'Verified';
+    s.verificationStatus = s.verificationStatus || s.quality || 'Verified';
+    if (s.verificationStatus === 'Verified' || s.quality === 'Verified') {
+      s.available = s.quantity > 0;
+      s.availabilityStatus = s.available ? 'Available' : 'Depleted';
+    }
   }
 
   db.sources = unifiedSources;
@@ -467,18 +391,107 @@ export async function createWaterRequest(params) {
       throw new Error(`Water source '${sourceId}' not found.`);
     }
 
-    const demand = db.demands.find(d => d.id === demandId);
+    let demand = demandId ? db.demands.find(d => d.id === demandId) : null;
     if (!demand) {
-      throw new Error(`Water demand '${demandId}' not found.`);
+      const qty = Number(requestedQuantity) || Math.min(source.quantity || 4000, 4000);
+      const title = params.demandTitle || `Water Demand for ${source.name}`;
+      demand = {
+        id: `dem-${Date.now()}`,
+        title,
+        buyerId: params.buyerId || "seed-buyer-1",
+        buyerName: buyerName || "Green Park",
+        buyerOrg: buyerOrg || "Green Park Residential Society",
+        quantity: qty,
+        requiredQuantity: qty,
+        allocatedQuantity: 0,
+        fulfilledQuantity: 0,
+        remainingQuantity: qty,
+        purpose: params.purpose || params.intendedReuse || (source.intendedUses && source.intendedUses[0]) || "Irrigation",
+        status: "Active",
+        statusColor: "green",
+        deliveryLocation: params.deliveryLocation || "Chennai, Tamil Nadu",
+        coordinates: params.coordinates || [13.0827, 80.2707],
+        createdAt: new Date().toISOString().split('T')[0],
+        updatedAt: new Date().toISOString()
+      };
+      db.demands.unshift(demand);
+      db.activities.unshift({
+        id: `act-${Date.now()}`,
+        type: "demand",
+        title: "New Demand Registered",
+        detail: `${demand.title} - ${demand.quantity.toLocaleString()} L (${demand.purpose})`,
+        time: "Just now",
+        timestamp: new Date().toISOString(),
+        icon: "clipboard"
+      });
+      if (isDbConnected()) {
+        try {
+          await BuyerRequest.create({
+            requestCode: demand.id,
+            buyerName: demand.buyerName,
+            title: demand.title,
+            waterCategory: source.type || source.category || 'Treated Wastewater',
+            requiredQuantity: demand.quantity,
+            purpose: demand.purpose,
+            intendedUse: demand.purpose,
+            deliveryLocation: { address: demand.deliveryLocation, coordinates: demand.coordinates },
+            status: 'Active'
+          });
+        } catch (e) {
+          console.warn("[createWaterRequest] MongoDB sync error on demand auto-create:", e.message);
+        }
+      }
     }
 
     // Check if demand is already fully satisfied
-    const remainingDemand = demand.remainingQuantity !== undefined 
+    let remainingDemand = demand.remainingQuantity !== undefined 
       ? demand.remainingQuantity 
       : Math.max(0, (demand.requiredQuantity || demand.quantity) - (demand.allocatedQuantity || 0) - (demand.fulfilledQuantity || 0));
 
     if (remainingDemand <= 0) {
-      throw new Error(`Demand '${demand.title}' is already fully allocated or fulfilled. No further allocations permitted.`);
+      // Auto-create a continuation batch for this facility so the buyer's request proceeds smoothly
+      const baseTitle = (demand.title || "Facility Water Demand").replace(/\s*\(Batch\s*\d+\)$/i, '');
+      const batchNum = (db.demands || []).filter(d => (d.title || '').startsWith(baseTitle)).length + 1;
+      const reqVol = Number(requestedQuantity) || Math.min(source.quantity || 4000, 4000);
+      const continuationDemand = {
+        id: `dem-${Date.now()}`,
+        title: `${baseTitle} (Batch ${batchNum})`,
+        buyerId: demand.buyerId || "seed-buyer-1",
+        buyerName: demand.buyerName || buyerName || "Green Park",
+        buyerOrg: demand.buyerOrg || buyerOrg || "Green Park Residential Society",
+        quantity: reqVol,
+        requiredQuantity: reqVol,
+        allocatedQuantity: 0,
+        fulfilledQuantity: 0,
+        remainingQuantity: reqVol,
+        purpose: demand.purpose || "Irrigation",
+        status: "Active",
+        statusColor: "green",
+        deliveryLocation: demand.deliveryLocation || "Chennai, Tamil Nadu",
+        coordinates: demand.coordinates || [13.0827, 80.2707],
+        createdAt: new Date().toISOString().split('T')[0],
+        updatedAt: new Date().toISOString()
+      };
+      db.demands.unshift(continuationDemand);
+      if (isDbConnected()) {
+        try {
+          await BuyerRequest.create({
+            requestCode: continuationDemand.id,
+            buyerName: continuationDemand.buyerName,
+            title: continuationDemand.title,
+            waterCategory: source.type || source.category || 'Treated Wastewater',
+            requiredQuantity: continuationDemand.quantity,
+            purpose: continuationDemand.purpose,
+            intendedUse: continuationDemand.purpose,
+            deliveryLocation: { address: continuationDemand.deliveryLocation, coordinates: continuationDemand.coordinates },
+            status: 'Active'
+          });
+        } catch (e) {
+          console.warn("[createWaterRequest] MongoDB sync error on continuation demand create:", e.message);
+        }
+      }
+      demand = continuationDemand;
+      remainingDemand = reqVol;
     }
 
     const reqQty = Number(requestedQuantity) || Math.min(source.quantity, remainingDemand);
@@ -487,7 +500,11 @@ export async function createWaterRequest(params) {
     }
 
     if (reqQty > remainingDemand) {
-      throw new Error(`Requested quantity (${reqQty.toLocaleString()} L) exceeds the remaining unmet demand (${remainingDemand.toLocaleString()} L).`);
+      // Gracefully expand demand requirement to accommodate buyer's requested volume
+      demand.requiredQuantity = (demand.allocatedQuantity || 0) + (demand.fulfilledQuantity || 0) + reqQty;
+      demand.quantity = demand.requiredQuantity;
+      remainingDemand = reqQty;
+      demand.remainingQuantity = remainingDemand;
     }
 
     // Check available unreserved quantity
@@ -504,16 +521,14 @@ export async function createWaterRequest(params) {
       throw new Error(`Source '${source.name}' is currently unavailable.`);
     }
 
-    // Check duplicate pending request for same source and demand
-    const duplicate = db.requests.find(r => 
+    // Check if previous requests exist between this source and demand; treat as additional tanker allocation
+    const existingRequests = (db.requests || []).filter(r => 
       r.sourceId === sourceId && 
-      r.demandId === demandId && 
+      (r.demandId === demand.id || r.demandId === demandId) && 
       (r.status === 'Pending' || r.status === 'Accepted' || r.status === 'Scheduled')
     );
-
-    if (duplicate) {
-      throw new Error(`An active request (#${duplicate.id}) already exists between demand '${demand.title}' and source '${source.name}'.`);
-    }
+    const tankerIndex = existingRequests.length + 1;
+    const tankerSuffix = existingRequests.length > 0 ? ` (Tanker #${tankerIndex})` : '';
 
     const newRequest = {
       id: `req-${Date.now()}`,
@@ -534,7 +549,7 @@ export async function createWaterRequest(params) {
       estimatedDistance: source.distance || 4.5,
       estimatedDeliveryCost: Math.round(450 + ((source.distance || 4.5) * 110)),
       status: "Pending", // Requested, awaiting seller review
-      notes: notes || `Water allocation request for ${demand.purpose}`,
+      notes: notes ? `${notes}${tankerSuffix}` : `Water allocation request for ${demand.purpose}${tankerSuffix}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -565,6 +580,7 @@ export async function createWaterRequest(params) {
     });
 
     saveDB(db);
+    syncMongoRequest(newRequest);
     return newRequest;
   });
 }
@@ -683,6 +699,11 @@ export async function acceptWaterRequest(requestId) {
       updatedAt: new Date().toISOString()
     };
 
+    request.matchId = newMatch.id;
+    if (sellerReq) {
+      sellerReq.matchId = newMatch.id;
+    }
+
     db.matches.unshift(newMatch);
     db.sellerMatches.unshift(newMatch);
 
@@ -720,29 +741,8 @@ export async function acceptWaterRequest(requestId) {
     });
 
     saveDB(db);
-
-    // Sync with MongoDB if connected
-    if (isDbConnected()) {
-      try {
-        await Match.create({
-          matchCode: newMatch.id,
-          sourceId: source.id,
-          sourceName: source.name,
-          demandId: request.demandId,
-          destinationName: newMatch.destinationName,
-          quantity: newMatch.matchedQuantity,
-          distanceKm: newMatch.distanceKm,
-          status: 'Matched',
-          qualityVerified: true
-        });
-        await SupplierListing.findOneAndUpdate(
-          { listingCode: source.id },
-          { $inc: { availableQuantity: -request.requestedQuantity } }
-        );
-      } catch (err) {
-        console.warn("[inventoryService] MongoDB sync error on accept:", err.message);
-      }
-    }
+    syncMongoRequest(request);
+    syncMongoMatch(newMatch);
 
     return { request, match: newMatch, updatedSource: source };
   });
@@ -804,6 +804,7 @@ export async function rejectWaterRequest(requestId, reason, notes = '') {
     });
 
     saveDB(db);
+    syncMongoRequest(request);
     return request;
   });
 }
@@ -821,8 +822,11 @@ export async function updateMatchStatus(matchId, newStatus, details = {}) {
     }
 
     const validTransitions = {
-      'Scheduled': ['In Transit', 'Cancelled'],
-      'In Transit': ['Delivered', 'Cancelled', 'Failed'],
+      'Pending': ['Accepted', 'Scheduled', 'Confirmed', 'Cancelled'],
+      'Accepted': ['Scheduled', 'Confirmed', 'In Transit', 'Cancelled'],
+      'Scheduled': ['Confirmed', 'In Transit', 'Cancelled'],
+      'Confirmed': ['In Transit', 'Delivered', 'Completed', 'Cancelled'],
+      'In Transit': ['Delivered', 'Completed', 'Cancelled', 'Failed'],
       'Delivered': ['Completed', 'Failed'],
       'Completed': [],
       'Cancelled': [],
@@ -838,9 +842,26 @@ export async function updateMatchStatus(matchId, newStatus, details = {}) {
     match.status = newStatus;
     match.updatedAt = new Date().toISOString();
 
+    if (newStatus === 'Confirmed' || details.buyerConfirmed) {
+      match.buyerConfirmed = true;
+      match.confirmedAt = new Date().toISOString();
+      if (match.requestId) {
+        const reqObj = (db.requests || []).find(r => r.id === match.requestId);
+        if (reqObj) reqObj.status = 'Confirmed';
+        const sReqObj = (db.sellerRequests || []).find(r => r.id === match.requestId);
+        if (sReqObj) sReqObj.status = 'Confirmed';
+      }
+    }
+
     if (details.driverName) match.driverName = details.driverName;
     if (details.driverPhone) match.driverPhone = details.driverPhone;
     if (details.instructions) match.instructions = details.instructions;
+
+    // Mirror to sellerMatches
+    const sellerMatch = (db.sellerMatches || []).find(m => m.id === match.id);
+    if (sellerMatch) {
+      Object.assign(sellerMatch, match);
+    }
 
     const source = db.sources.find(s => s.id === match.sourceId);
     const demand = db.demands.find(d => d.id === match.demandId);
@@ -898,13 +919,8 @@ export async function updateMatchStatus(matchId, newStatus, details = {}) {
       }
     }
 
-    // Mirror to sellerMatches
-    const sellerMatch = db.sellerMatches.find(m => m.id === match.id);
-    if (sellerMatch) {
-      Object.assign(sellerMatch, match);
-    }
-
     saveDB(db);
+    syncMongoMatch(match);
     return match;
   });
 }

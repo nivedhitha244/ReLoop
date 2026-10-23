@@ -14,128 +14,108 @@ const initialMock = {
     }
   },
   stats: {
-    totalDemand: 12000,
-    matchedQuantity: 7500,
-    matchedPercent: 62,
-    freshwaterSaved: 7500,
-    freshwaterSavedEq: 15000,
-    unmetDemand: 4500,
-    activeRequestsCount: 3,
-    transportCost: 3750,
+    totalDemand: 6000,
+    matchedQuantity: 4000,
+    matchedPercent: 67,
+    freshwaterSaved: 3000,
+    freshwaterSavedEq: 6000,
+    unmetDemand: 2000,
+    activeRequestsCount: 2,
+    transportCost: 2150,
     sourcesUsed: 2
   },
   sources: [
     {
-      id: "src-1",
-      name: "Factory A",
-      type: "Industrial",
-      iconType: "factory",
-      quantity: 5000,
-      distance: 2.8,
-      quality: "Verified",
-      coordinates: [13.0878, 80.2785],
-      available: true,
-      description: "Treated cooling tower blowdown, suitable for industrial reuse and irrigation."
-    },
-    {
-      id: "src-2",
-      name: "STP Plant",
+      id: "src-seller-1",
+      name: "Apex Tech Park STP",
       type: "Treated Wastewater",
       iconType: "leaf-water",
-      quantity: 7000,
-      distance: 6.5,
-      quality: "Pending",
-      coordinates: [13.0450, 80.2400],
-      available: true,
-      description: "Tertiary treated municipal wastewater, lab analysis verification in progress."
-    },
-    {
-      id: "src-3",
-      name: "IT Park",
-      type: "RO Reject Water",
-      iconType: "building",
-      quantity: 4000,
-      distance: 8.1,
+      quantity: 9000,
+      distance: 3.5,
       quality: "Verified",
-      coordinates: [12.9800, 80.2200],
+      coordinates: [12.98, 80.22],
       available: true,
-      description: "High TDS reverse osmosis reject water, suitable for flushing & dust suppression."
+      indicativePrice: "₹0.12/L",
+      intendedUses: ["Irrigation", "Landscaping", "Construction", "Toilet Flushing"],
+      description: "Tertiary treated STP water, ultrafiltered and UV disinfected, verified for safe non-potable reuse.",
+      labReport: {
+        id: "LAB-2026-098",
+        tester: "AquaCert Labs",
+        status: "Verified",
+        ph: 7.2,
+        turbidity: "1.1 NTU",
+        tds: "410 ppm",
+        expiryDate: "2027-04-15"
+      },
+      dataSource: "Verified Live Water Source"
     },
     {
-      id: "src-4",
-      name: "Apartment Complex",
-      type: "Greywater",
+      id: "src-seller-2",
+      name: "Nivi Apartment",
+      type: "Rainwater",
       iconType: "apartment",
-      quantity: 3000,
-      distance: 4.2,
+      quantity: 8000,
+      distance: 4.8,
       quality: "Verified",
-      coordinates: [13.0100, 80.2600],
+      coordinates: [13.0067, 80.205],
       available: true,
-      description: "Residential greywater system filtered through sand & carbon media."
+      indicativePrice: "₹0.10/L",
+      intendedUses: ["Landscaping", "Construction", "Toilet Flushing", "Irrigation"],
+      description: "High-capacity harvested rainwater reservoir treated with multi-stage sand & carbon filtration.",
+      labReport: {
+        id: "LAB-2026-112",
+        tester: "AquaCert Labs",
+        status: "Verified",
+        ph: 7.1,
+        turbidity: "1.0 NTU",
+        tds: "220 ppm",
+        expiryDate: "2027-04-30"
+      },
+      dataSource: "Verified Live Water Source"
     }
   ],
   demands: [
     {
       id: "dem-1",
-      title: "Green Park",
+      title: "Green Park Housing Society",
       quantity: 4000,
       purpose: "Irrigation",
-      status: "Active",
+      status: "Matched",
       statusColor: "green",
-      coordinates: [13.0827, 80.2707],
-      createdAt: "2025-04-20"
+      coordinates: [13.0418, 80.2341],
+      indicativeBudget: "₹0.15/L",
+      requiredQuality: "Verified",
+      createdAt: "2026-10-22",
+      dataSource: "Live Buyer Demand"
     },
     {
       id: "dem-2",
-      title: "Sports Complex",
+      title: "Metro Rail Construction Corp",
       quantity: 2000,
       purpose: "Construction",
-      status: "Pending",
+      status: "Active",
       statusColor: "blue",
-      coordinates: [13.0600, 80.2500],
-      createdAt: "2025-04-21"
-    },
-    {
-      id: "dem-3",
-      title: "Community Garden",
-      quantity: 3000,
-      purpose: "Irrigation",
-      status: "Matching",
-      statusColor: "amber",
-      coordinates: [13.0300, 80.2300],
-      createdAt: "2025-04-22"
+      coordinates: [13.0694, 80.1948],
+      indicativeBudget: "₹0.12/L",
+      requiredQuality: "Standard",
+      createdAt: "2026-10-23",
+      dataSource: "Live Buyer Demand"
     }
   ],
   activities: [
     {
       id: "act-1",
       type: "match",
-      title: "New match found",
-      detail: "Factory A → Green Park",
+      title: "Match Confirmed & Scheduled",
+      detail: "Apex Tech Park STP → Green Park Housing Society (4,000 L)",
       time: "2h ago",
       icon: "link"
     },
     {
       id: "act-2",
-      type: "approval",
-      title: "Demand approved",
-      detail: "Green Park - 4,000 L (Irrigation)",
-      time: "4h ago",
-      icon: "file-text"
-    },
-    {
-      id: "act-3",
-      type: "source",
-      title: "New source added",
-      detail: "STP Plant - 7,000 L",
-      time: "5h ago",
-      icon: "droplet"
-    },
-    {
-      id: "act-4",
       type: "complete",
-      title: "Match completed",
-      detail: "Apartment Complex → Sports Center",
+      title: "Delivery Completed",
+      detail: "Nivi Apartment → Metro Rail Construction Corp (2,000 L)",
       time: "1d ago",
       icon: "check-circle"
     }

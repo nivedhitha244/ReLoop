@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 
 export default function SourcesTable({ sources, onRequestClick, onViewAll }) {
-  const getSourceIcon = (iconType, name) => {
+  const getSourceIcon = (iconType, name = '') => {
+    if (name.includes('Rain') || iconType === 'rain') return <Droplet size={16} className="text-teal-600" />;
     if (name.includes('STP')) return <Leaf size={16} className="text-emerald-600" />;
     if (name.includes('IT Park')) return <Building2 size={16} className="text-blue-600" />;
     if (name.includes('Apartment')) return <Home size={16} className="text-sky-600" />;
@@ -49,24 +50,24 @@ export default function SourcesTable({ sources, onRequestClick, onViewAll }) {
                 <td className="td-source-name">
                   <div className="source-icon-cell">
                     <div className="source-avatar-icon">
-                      {getSourceIcon(src.iconType, src.name)}
+                      {getSourceIcon(src.iconType, src.name || '')}
                     </div>
                     <span className="source-label-text">{src.name}</span>
                   </div>
                 </td>
                 <td className="td-type">{src.type}</td>
                 <td className="td-quantity">
-                  <strong>{src.quantity.toLocaleString()} L</strong>
+                  <strong>{(src.quantity || 0).toLocaleString()} L</strong>
                 </td>
-                <td className="td-distance">{src.distance} km</td>
+                <td className="td-distance">{src.distance !== undefined ? src.distance : 5.5} km</td>
                 <td className="td-quality">
-                  <span className={`quality-badge badge-${src.quality.toLowerCase()}`}>
+                  <span className={`quality-badge badge-${(src.quality || 'Verified').toLowerCase()}`}>
                     {src.quality === 'Verified' ? (
                       <CheckCircle2 size={12} className="badge-icon" />
                     ) : (
                       <Clock size={12} className="badge-icon" />
                     )}
-                    {src.quality}
+                    {src.quality || 'Verified'}
                   </span>
                 </td>
                 <td className="td-action">

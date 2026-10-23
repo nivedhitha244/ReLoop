@@ -1591,13 +1591,13 @@ input, select {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(5, 25, 23, 0.5);
+  background-color: rgba(5, 25, 23, 0.55);
   backdrop-filter: blur(4px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  overflow: hidden;
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -1605,18 +1605,23 @@ input, select {
   background-color: #ffffff;
   border-radius: 18px;
   width: 100%;
-  max-width: 480px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  max-width: 520px;
+  max-height: min(560px, 88vh);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   animation: scaleUp 0.25s ease-out;
+  margin: auto;
 }
 
 .modal-header {
-  padding: 20px 24px;
+  padding: 16px 22px;
   border-bottom: 1px solid #eef3f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .modal-title-wrap {
@@ -1657,7 +1662,10 @@ input, select {
 }
 
 .modal-form, .modal-body {
-  padding: 20px 24px;
+  padding: 18px 22px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .form-group {
@@ -1715,9 +1723,10 @@ input, select {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  padding: 16px 24px;
+  padding: 14px 22px;
   border-top: 1px solid #eef3f0;
   background-color: #fafcfb;
+  flex-shrink: 0;
 }
 
 .btn-cancel {
@@ -1874,25 +1883,7 @@ input, select {
   color: #334155;
 }
 
-/* Toast */
-.reloop-toast {
-  position: fixed;
-  top: 24px;
-  right: 32px;
-  z-index: 1200;
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-  border-radius: 12px;
-  padding: 12px 18px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #1e293b;
-  animation: slideDown 0.25s ease-out;
-}
+
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -1981,16 +1972,20 @@ input, select {
 .btn-primary-action {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: auto;
   gap: 8px;
   background: linear-gradient(135deg, #0c6e5d 0%, #085346 100%);
   color: #ffffff;
-  padding: 11px 22px;
+  padding: 10px 20px;
   border-radius: 10px;
   font-weight: 600;
   font-size: 13.5px;
   box-shadow: 0 4px 14px rgba(12, 110, 93, 0.25);
   cursor: pointer;
   transition: all 0.2s ease;
+  border: none;
+  flex-shrink: 0;
 }
 
 .btn-primary-action:hover {
@@ -3018,5 +3013,112 @@ input, select {
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(12, 110, 93, 0.15);
 }
+
+/* Enhanced Floating Dynamic Island Notification Pill */
+.reloop-toast {
+  position: fixed;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.15), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 500px;
+  min-width: 300px;
+  color: #0f172a;
+  animation: slideToastFromTop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.reloop-toast.toast-success {
+  border-left: 5px solid #10b981;
+  background: #ffffff;
+}
+
+.reloop-toast.toast-info {
+  border-left: 5px solid #0284c7;
+  background: #ffffff;
+}
+
+.reloop-toast.toast-error {
+  border-left: 5px solid #ef4444;
+  background: #ffffff;
+}
+
+.toast-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f1f5f9;
+}
+
+.reloop-toast.toast-success .toast-icon-wrap {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.reloop-toast.toast-info .toast-icon-wrap {
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.reloop-toast.toast-error .toast-icon-wrap {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-message {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  display: block;
+}
+
+.toast-close-btn {
+  background: #f1f5f9;
+  border: none;
+  color: #64748b;
+  padding: 6px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toast-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+@keyframes slideToastFromTop {
+  from {
+    transform: translate(-50%, -24px) scale(0.94);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+}
+
 
 

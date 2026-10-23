@@ -26,7 +26,7 @@ const ROLE_COLORS = {
   verifier: { bg: '#faf5ff', color: '#9333ea', label: 'Verifier' },
 };
 
-export default function AdminUserManagement({ onNavigate, showToast, globalSearch = '' }) {
+export default function AdminUserManagement({ onNavigate, showToast, globalSearch = '', refreshTrigger }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState('all');
@@ -43,9 +43,9 @@ export default function AdminUserManagement({ onNavigate, showToast, globalSearc
 
   const effectiveSearch = globalSearch || localSearch;
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const res = await fetch(`/api/admin/users?role=${roleFilter}&status=${statusFilter}&search=${encodeURIComponent(effectiveSearch)}`);
       if (res.ok) {
         const json = await res.json();
@@ -59,8 +59,8 @@ export default function AdminUserManagement({ onNavigate, showToast, globalSearc
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, [roleFilter, statusFilter, effectiveSearch]);
+    fetchUsers(users.length > 0);
+  }, [roleFilter, statusFilter, effectiveSearch, refreshTrigger]);
 
   const handleStatusConfirm = async (reason) => {
     if (!statusModal.user || !statusModal.nextStatus) return;
@@ -84,6 +84,8 @@ export default function AdminUserManagement({ onNavigate, showToast, globalSearc
 
       setStatusModal({ isOpen: false, user: null, nextStatus: '' });
       fetchUsers();
+      window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'admin_user_status_updated' } }));
+      localStorage.setItem('reloop_last_mutation', String(Date.now()));
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.message });
     } finally {
@@ -113,6 +115,8 @@ export default function AdminUserManagement({ onNavigate, showToast, globalSearc
 
       setRoleModal({ isOpen: false, user: null, nextRole: '' });
       fetchUsers();
+      window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'admin_user_role_updated' } }));
+      localStorage.setItem('reloop_last_mutation', String(Date.now()));
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.message });
     } finally {

@@ -134,7 +134,19 @@ export default function App() {
             onActionClick={(tabKey) => {
               if (tabKey === 'demands') setIsDemandModalOpen(true);
               else if (tabKey === 'matches') showToast("Displaying confirmed supplier matches.");
-              else if (tabKey === 'reports') showToast("Generating annual water reuse impact report.");
+              else if (tabKey === 'reports') {
+                const csv = 'ReLoop 2.0 - Annual Impact Report 2026\nMetric,Value\nRecycled Water,12500 L\nFreshwater Conserved,8000 L\nCO2 Avoided,18.4 kg\nSavings,INR 14500\nCircularity,92%\n';
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'ReLoop_Annual_Impact_Report_2026.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast("Annual water reuse impact report downloaded!", "success");
+              }
               else if (tabKey === 'find-water') {
                 const el = document.querySelector('.sources-table-card');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });

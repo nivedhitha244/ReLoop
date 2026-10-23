@@ -133,29 +133,36 @@ export default function RightSidebar({
         </div>
 
         <div className="demands-list">
-          {demands.map((item) => (
-            <div key={item.id} className="demand-row-item">
-              <div className="demand-icon-col">
-                <div className={`demand-icon-pill pill-${item.statusColor}`}>
-                  <FileText size={15} />
-                </div>
-              </div>
-
-              <div className="demand-details">
-                <div className="demand-name">{item.title}</div>
-                <div className="demand-meta">
-                  {item.quantity.toLocaleString()} L · {item.purpose}
-                </div>
-              </div>
-
-              <div className="demand-status-col">
-                <span className={`status-pill pill-${item.status.toLowerCase()}`}>
-                  {item.status}
-                </span>
-                <ChevronRight size={15} className="demand-chevron" />
-              </div>
+          {!demands || demands.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 12px', color: '#94a3b8', fontSize: '13px' }}>
+              <p style={{ margin: '0 0 6px', color: '#64748b', fontWeight: 600 }}>No Demands Registered</p>
+              <span>Click 'Create Demand' above to post your requirement</span>
             </div>
-          ))}
+          ) : (
+            demands.map((item) => (
+              <div key={item.id} className="demand-row-item">
+                <div className="demand-icon-col">
+                  <div className={`demand-icon-pill pill-${item.statusColor}`}>
+                    <FileText size={15} />
+                  </div>
+                </div>
+
+                <div className="demand-details">
+                  <div className="demand-name">{item.title}</div>
+                  <div className="demand-meta">
+                    {(item.quantity || item.requiredQuantity || 0).toLocaleString()} L · {item.purpose}
+                  </div>
+                </div>
+
+                <div className="demand-status-col">
+                  <span className={`status-pill pill-${(item.status || 'Active').toLowerCase()}`}>
+                    {item.status || 'Active'}
+                  </span>
+                  <ChevronRight size={15} className="demand-chevron" />
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -172,24 +179,30 @@ export default function RightSidebar({
         </div>
 
         <div className="activity-list">
-          {activities.map((act) => (
-            <div key={act.id} className="activity-item-row">
-              <div className={`activity-icon-wrap icon-${act.type}`}>
-                {act.type === 'match' && <Link2 size={13} />}
-                {act.type === 'approval' && <FileText size={13} />}
-                {act.type === 'source' && <Droplet size={13} />}
-                {act.type === 'complete' && <CheckCircle2 size={13} />}
-                {act.type === 'rescue' && <ShieldAlert size={13} />}
-              </div>
-              <div className="activity-text">
-                <div className="act-title-time">
-                  <span className="act-title">{act.title}</span>
-                  <span className="act-time">{act.time}</span>
-                </div>
-                <div className="act-detail">{act.detail}</div>
-              </div>
+          {!activities || activities.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 12px', color: '#94a3b8', fontSize: '13px' }}>
+              <span>No recent activities recorded yet</span>
             </div>
-          ))}
+          ) : (
+            activities.map((act) => (
+              <div key={act.id} className="activity-item-row">
+                <div className={`activity-icon-wrap icon-${act.type}`}>
+                  {act.type === 'match' && <Link2 size={13} />}
+                  {act.type === 'approval' && <FileText size={13} />}
+                  {act.type === 'source' && <Droplet size={13} />}
+                  {act.type === 'complete' && <CheckCircle2 size={13} />}
+                  {act.type === 'rescue' && <ShieldAlert size={13} />}
+                </div>
+                <div className="activity-text">
+                  <div className="act-title-time">
+                    <span className="act-title">{act.title}</span>
+                    <span className="act-time">{act.time}</span>
+                  </div>
+                  <div className="act-detail">{act.detail}</div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </aside>

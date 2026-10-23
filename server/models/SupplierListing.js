@@ -18,7 +18,7 @@ const SupplierListingSchema = new mongoose.Schema(
     waterCategory: {
       type: String,
       required: true,
-      enum: ['Industrial', 'Treated Wastewater', 'RO Reject Water', 'Greywater', 'Stormwater'],
+      enum: ['Industrial', 'Treated Wastewater', 'RO Reject Water', 'Greywater', 'Stormwater', 'Rainwater'],
     },
     title: {
       type: String,

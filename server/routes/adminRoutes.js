@@ -11,7 +11,9 @@ import {
 } from '../models/index.js';
 import { isDbConnected } from '../db.js';
 import { evaluateCandidateMatch, calculateDistanceKm } from '../services/matchingService.js';
+import mongoose from 'mongoose';
 import { memoryUsers } from './auth.js';
+import { loadDB, saveDB, updateMatchStatus } from '../services/inventoryService.js';
 
 const router = express.Router();
 
@@ -69,117 +71,47 @@ router.get('/overview', async (req, res) => {
       },
     };
 
-    if (isDbConnected()) {
-      // 1. Deliveries completed
-      const completedDeliveries = await Delivery.find({ status: 'Completed' });
-      metrics.totalWaterReused = completedDeliveries.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
+    const db = loadDB();
 
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const deliveriesToday = completedDeliveries.filter(d => new Date(d.completedAt || d.updatedAt) >= todayStart);
-      metrics.waterReusedToday = deliveriesToday.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
+    // Compute live values from canonical data_store
+    const canonicalCompleted = (db.matches || []).filter(m => m.status === 'Completed');
+    let dbWaterReused = canonicalCompleted.reduce((sum, m) => sum + (Number(m.confirmedReusedQuantity || m.matchedQuantity || m.quantity) || 0), 0);
+    let dbActiveSuppliers = (db.sources || []).length || (db.sellerSources || []).length;
+    let dbPendingRequests = (db.requests || []).filter(r => r.status === 'Pending').length + (db.demands || []).filter(d => d.status === 'Active' || d.status === 'Partially Matched').length;
+    let dbPendingQuality = (db.sellerDocuments || []).filter(d => d.status === 'Pending' || d.status === 'Pending Review').length;
+    let dbActiveDeliveries = (db.matches || []).filter(m => m.status === 'In Transit' || m.status === 'Scheduled').length;
+    let dbSuccessfulMatches = (db.matches || []).filter(m => m.status === 'Confirmed' || m.status === 'Completed').length;
 
-      // 2. Active Suppliers
-      metrics.activeSuppliers = await User.countDocuments({ role: 'supplier', accountStatus: 'active' });
+    metrics.totalWaterReused = dbWaterReused;
+    metrics.activeSuppliers = dbActiveSuppliers;
+    metrics.pendingBuyerRequests = dbPendingRequests;
+    metrics.pendingQualityApprovals = dbPendingQuality;
+    metrics.activeDeliveries = dbActiveDeliveries;
+    metrics.successfulMatches = dbSuccessfulMatches;
 
-      // 3. Pending Buyer Requests
-      metrics.pendingBuyerRequests = await BuyerRequest.countDocuments({
-        status: { $in: ['Active', 'Pending'] },
-        matchingStatus: { $in: ['Unmatched', 'In Review'] },
-      });
-
-      // 4. Pending Quality Approvals
-      metrics.pendingQualityApprovals = await QualityReport.countDocuments({ status: { $in: ['Pending', 'Needs Re-test'] } });
-
-      // 5. Active Deliveries
-      metrics.activeDeliveries = await Delivery.countDocuments({ status: 'In Transit' });
-
-      // 6. Successful Matches
-      metrics.successfulMatches = await Match.countDocuments({ status: { $in: ['Admin Approved', 'Completed'] } });
-
-      // 7. Monthly & Trend charts
-      metrics.charts.reuseTrends = [
-        { month: 'Nov 2025', volume: 14500, freshwaterSaved: 14500 },
-        { month: 'Dec 2025', volume: 22000, freshwaterSaved: 22000 },
-        { month: 'Jan 2026', volume: 28500, freshwaterSaved: 28500 },
-        { month: 'Feb 2026', volume: 34000, freshwaterSaved: 34000 },
-        { month: 'Mar 2026', volume: 41200, freshwaterSaved: 41200 },
-        { month: 'Apr 2026', volume: metrics.totalWaterReused > 0 ? metrics.totalWaterReused : 48000, freshwaterSaved: metrics.totalWaterReused > 0 ? metrics.totalWaterReused : 48000 },
-      ];
-
-      metrics.charts.monthlySupplyDemand = [
-        { month: 'Nov', supply: 35000, demand: 30000, matched: 14500 },
-        { month: 'Dec', supply: 42000, demand: 38000, matched: 22000 },
-        { month: 'Jan', supply: 48000, demand: 42000, matched: 28500 },
-        { month: 'Feb', supply: 51000, demand: 46000, matched: 34000 },
-        { month: 'Mar', supply: 58000, demand: 52000, matched: 41200 },
-        { month: 'Apr', supply: 64000, demand: 58000, matched: 48000 },
-      ];
-
-      const totalReqs = await BuyerRequest.countDocuments();
-      metrics.charts.matchesComparison = [
-        { name: 'Successful Matches', count: metrics.successfulMatches || 14 },
-        { name: 'In Review / Proposed', count: await Match.countDocuments({ status: 'Proposed' }) || 6 },
-        { name: 'Unmatched Demands', count: metrics.pendingBuyerRequests || 5 },
-      ];
-
-      metrics.charts.reuseByCategory = [
-        { category: 'Industrial Cooling', volume: 18000, percentage: 38 },
-        { category: 'Treated Wastewater', volume: 15500, percentage: 32 },
-        { category: 'Greywater', volume: 8500, percentage: 18 },
-        { category: 'RO Reject Water', volume: 6000, percentage: 12 },
-      ];
-
-      metrics.charts.deliveryStatusBreakdown = [
-        { status: 'Completed', count: completedDeliveries.length || 18, fill: '#10b981' },
-        { status: 'In Transit', count: metrics.activeDeliveries || 2, fill: '#2563eb' },
-        { status: 'Transporter Assigned', count: await Delivery.countDocuments({ status: 'Transporter Assigned' }) || 4, fill: '#06b6d4' },
-        { status: 'Cancelled/Disputed', count: await Delivery.countDocuments({ status: { $in: ['Cancelled', 'Disputed'] } }) || 1, fill: '#ef4444' },
-      ];
-    } else {
-      // Fallback in-memory data
-      metrics = {
-        totalWaterReused: 7500,
-        waterReusedToday: 4000,
-        activeSuppliers: 3,
-        pendingBuyerRequests: 2,
-        pendingQualityApprovals: 1,
-        activeDeliveries: 1,
-        successfulMatches: 2,
-        systemHealth: {
-          status: 'Degraded',
-          database: 'In-Memory Resilient Store',
-          uptimeSeconds: Math.round(process.uptime()),
-          memoryUsageMb: 45,
-          connectedAt: new Date().toISOString(),
-        },
-        charts: {
-          reuseTrends: [
-            { month: 'Feb', volume: 3400, freshwaterSaved: 3400 },
-            { month: 'Mar', volume: 5200, freshwaterSaved: 5200 },
-            { month: 'Apr', volume: 7500, freshwaterSaved: 7500 },
-          ],
-          monthlySupplyDemand: [
-            { month: 'Feb', supply: 12000, demand: 8000, matched: 3400 },
-            { month: 'Mar', supply: 15000, demand: 11000, matched: 5200 },
-            { month: 'Apr', supply: 19000, demand: 14000, matched: 7500 },
-          ],
-          matchesComparison: [
-            { name: 'Successful Matches', count: 2 },
-            { name: 'In Review', count: 1 },
-            { name: 'Unmatched', count: 2 },
-          ],
-          reuseByCategory: [
-            { category: 'Industrial', volume: 4000, percentage: 53 },
-            { category: 'Treated Wastewater', volume: 3500, percentage: 47 },
-          ],
-          deliveryStatusBreakdown: [
-            { status: 'Completed', count: 1, fill: '#10b981' },
-            { status: 'In Transit', count: 1, fill: '#2563eb' },
-          ],
-        },
-      };
-    }
+    metrics.charts = {
+      reuseTrends: [
+        { month: 'Current', volume: metrics.totalWaterReused, freshwaterSaved: metrics.totalWaterReused }
+      ],
+      monthlySupplyDemand: [
+        { month: 'Current', supply: (db.sources || []).reduce((s, x) => s + (Number(x.totalRegisteredQuantity || x.quantity) || 0), 0), demand: (db.demands || []).reduce((s, x) => s + (Number(x.quantity) || 0), 0), matched: metrics.totalWaterReused }
+      ],
+      matchesComparison: [
+        { name: 'Successful Matches', count: metrics.successfulMatches },
+        { name: 'Active In Transit', count: metrics.activeDeliveries },
+        { name: 'Pending Demands', count: metrics.pendingBuyerRequests },
+      ],
+      reuseByCategory: (db.sources || []).map(s => ({
+        category: s.category || s.type || 'Treated Water',
+        volume: Number(s.quantity) || 0,
+        percentage: 100
+      })),
+      deliveryStatusBreakdown: [
+        { status: 'Completed', count: (db.matches || []).filter(m => m.status === 'Completed').length, fill: '#10b981' },
+        { status: 'In Transit', count: (db.matches || []).filter(m => m.status === 'In Transit').length, fill: '#2563eb' },
+        { status: 'Scheduled', count: (db.matches || []).filter(m => m.status === 'Scheduled' || m.status === 'Confirmed').length, fill: '#06b6d4' }
+      ]
+    };
 
     res.json(metrics);
   } catch (error) {
@@ -354,57 +286,66 @@ router.patch('/users/:id/role', async (req, res) => {
 router.get('/suppliers/listings', async (req, res) => {
   try {
     const { category, status, verification, search } = req.query;
+    const db = loadDB();
 
+    const canonicalSources = (db.sources || []).map(s => ({
+      _id: s.id,
+      listingCode: s.id.toUpperCase().replace('SRC-SELLER-', 'LST-'),
+      supplierName: s.supplierName || s.name,
+      waterCategory: s.category || s.type || 'Treated Wastewater',
+      title: s.name,
+      totalQuantity: Number(s.totalRegisteredQuantity || s.quantity) || 5000,
+      availableQuantity: Number(s.quantity !== undefined ? s.quantity : 5000),
+      pricePerLitre: s.pricePerLitre || 0.10,
+      indicativePrice: s.indicativePrice || '₹0.10/L',
+      location: { 
+        address: s.location || 'Chennai, Tamil Nadu', 
+        coordinates: s.coordinates || [12.98, 80.22] 
+      },
+      qualityVerificationStatus: s.quality || s.verificationStatus || 'Verified',
+      status: s.available !== false ? 'active' : 'suspended',
+      createdAt: s.lastUpdated || new Date().toISOString(),
+    }));
+
+    let mongoListings = [];
     if (isDbConnected()) {
-      const query = {};
-      if (category && category !== 'all') query.waterCategory = category;
-      if (status && status !== 'all') query.status = status;
-      if (verification && verification !== 'all') query.qualityVerificationStatus = verification;
-      if (search) {
-        query.$or = [
-          { title: { $regex: search, $options: 'i' } },
-          { supplierName: { $regex: search, $options: 'i' } },
-          { listingCode: { $regex: search, $options: 'i' } },
-        ];
+      try {
+        const query = {};
+        if (category && category !== 'all') query.waterCategory = category;
+        if (status && status !== 'all') query.status = status;
+        if (verification && verification !== 'all') query.qualityVerificationStatus = verification;
+        if (search) {
+          query.$or = [
+            { title: { $regex: search, $options: 'i' } },
+            { supplierName: { $regex: search, $options: 'i' } },
+            { listingCode: { $regex: search, $options: 'i' } },
+          ];
+        }
+        mongoListings = await SupplierListing.find(query).sort({ createdAt: -1 });
+      } catch (e) {
+        // Fallback to canonical
       }
-
-      const listings = await SupplierListing.find(query).sort({ createdAt: -1 });
-      return res.json(listings);
     }
 
-    // In-memory fallback
-    res.json([
-      {
-        _id: 'lst-1',
-        listingCode: 'LST-2026-001',
-        supplierName: 'Ambattur Industrial Effluent Plant',
-        waterCategory: 'Industrial',
-        title: 'Treated Industrial Cooling Blowdown',
-        totalQuantity: 8000,
-        availableQuantity: 4000,
-        pricePerLitre: 0.15,
-        indicativePrice: '₹0.15/L',
-        location: { address: 'Ambattur, Chennai', coordinates: [13.0878, 80.2785] },
-        qualityVerificationStatus: 'Verified',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        _id: 'lst-2',
-        listingCode: 'LST-2026-002',
-        supplierName: 'Apex Tech Park STP',
-        waterCategory: 'Treated Wastewater',
-        title: 'Tertiary Treated STP Water',
-        totalQuantity: 12000,
-        availableQuantity: 7000,
-        pricePerLitre: 0.08,
-        indicativePrice: '₹0.08/L',
-        location: { address: 'OMR Sholinganallur, Chennai', coordinates: [12.9800, 80.2200] },
-        qualityVerificationStatus: 'Verified',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+    let combined = [...canonicalSources];
+    for (const ml of mongoListings) {
+      if (!combined.some(c => c._id === String(ml._id) || c.listingCode === ml.listingCode)) {
+        combined.push(ml);
+      }
+    }
+
+    if (category && category !== 'all') {
+      combined = combined.filter(c => c.waterCategory.toLowerCase() === category.toLowerCase());
+    }
+    if (status && status !== 'all') {
+      combined = combined.filter(c => c.status.toLowerCase() === status.toLowerCase());
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      combined = combined.filter(c => (c.title || '').toLowerCase().includes(s) || (c.supplierName || '').toLowerCase().includes(s));
+    }
+
+    res.json(combined);
   } catch (error) {
     console.error('Error fetching supplier listings:', error);
     res.status(500).json({ error: 'Failed to retrieve supplier listings.' });
@@ -449,57 +390,90 @@ router.patch('/suppliers/listings/:id/status', async (req, res) => {
 router.get('/requests', async (req, res) => {
   try {
     const { category, status, priority, search } = req.query;
+    const db = loadDB();
 
-    if (isDbConnected()) {
-      const query = {};
-      if (category && category !== 'all') query.waterCategory = category;
-      if (status && status !== 'all') query.status = status;
-      if (priority && priority !== 'all') query.priority = priority;
-      if (search) {
-        query.$or = [
-          { title: { $regex: search, $options: 'i' } },
-          { buyerName: { $regex: search, $options: 'i' } },
-          { requestCode: { $regex: search, $options: 'i' } },
-          { purpose: { $regex: search, $options: 'i' } },
-        ];
+    const canonicalRequests = (db.requests || []).map(r => ({
+      _id: r.id,
+      requestCode: r.id.toUpperCase().replace('REQ-', 'REQ-2026-'),
+      buyerName: r.buyerName || 'Green Park',
+      title: r.demandTitle || `Request for ${r.sourceName || 'Water'}`,
+      waterCategory: r.intendedReuse || 'Treated Wastewater',
+      requiredQuantity: Number(r.requestedQuantity) || 4000,
+      fulfilledQuantity: r.status === 'Confirmed' || r.status === 'Completed' ? (Number(r.requestedQuantity) || 4000) : 0,
+      purpose: r.intendedReuse || 'Flushing',
+      priority: 'Standard',
+      status: r.status || 'Active',
+      matchingStatus: r.status === 'Confirmed' ? 'Matched' : 'In Review',
+      deliveryLocation: { 
+        address: r.deliveryLocation || 'Chennai, Tamil Nadu', 
+        coordinates: r.coordinates || [13.0418, 80.2341] 
+      },
+      createdAt: r.createdAt || new Date().toISOString(),
+    }));
+
+    for (const d of (db.demands || [])) {
+      if (!canonicalRequests.some(cr => cr._id === d.id || cr.title === d.title)) {
+        canonicalRequests.push({
+          _id: d.id,
+          requestCode: d.id.toUpperCase().replace('DEM-', 'REQ-2026-'),
+          buyerName: d.buyerName || 'Green Park',
+          title: d.title || 'Water Demand',
+          waterCategory: d.purpose || 'Treated Wastewater',
+          requiredQuantity: Number(d.quantity) || 4000,
+          fulfilledQuantity: Number(d.fulfilledQuantity) || 0,
+          purpose: d.purpose || 'Irrigation',
+          priority: 'Standard',
+          status: d.status || 'Active',
+          matchingStatus: d.status === 'Matched' ? 'Matched' : 'Unmatched',
+          deliveryLocation: { 
+            address: d.deliveryLocation || 'Chennai, Tamil Nadu', 
+            coordinates: d.coordinates || [13.0827, 80.2707] 
+          },
+          createdAt: d.createdAt || new Date().toISOString(),
+        });
       }
-
-      const requests = await BuyerRequest.find(query).sort({ createdAt: -1 });
-      return res.json(requests);
     }
 
-    res.json([
-      {
-        _id: 'req-1',
-        requestCode: 'REQ-2026-001',
-        buyerName: 'Green Park Housing Society',
-        title: 'Gardening & Landscape Irrigation Water',
-        waterCategory: 'Treated Wastewater',
-        requiredQuantity: 4000,
-        fulfilledQuantity: 4000,
-        purpose: 'Irrigation',
-        priority: 'Standard',
-        status: 'Fulfilled',
-        matchingStatus: 'Dispatched',
-        deliveryLocation: { address: 'T. Nagar, Chennai', coordinates: [13.0418, 80.2341] },
-        createdAt: new Date().toISOString(),
-      },
-      {
-        _id: 'req-2',
-        requestCode: 'REQ-2026-002',
-        buyerName: 'Metro Rail Construction Corp',
-        title: 'Piling & Concrete Curing Water Supply',
-        waterCategory: 'Industrial',
-        requiredQuantity: 6000,
-        fulfilledQuantity: 4000,
-        purpose: 'Construction',
-        priority: 'High',
-        status: 'Partially Matched',
-        matchingStatus: 'In Review',
-        deliveryLocation: { address: 'Koyambedu Metro Site, Chennai', coordinates: [13.0694, 80.1948] },
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+    let mongoRequests = [];
+    if (isDbConnected()) {
+      try {
+        const query = {};
+        if (category && category !== 'all') query.waterCategory = category;
+        if (status && status !== 'all') query.status = status;
+        if (priority && priority !== 'all') query.priority = priority;
+        if (search) {
+          query.$or = [
+            { title: { $regex: search, $options: 'i' } },
+            { buyerName: { $regex: search, $options: 'i' } },
+            { requestCode: { $regex: search, $options: 'i' } },
+            { purpose: { $regex: search, $options: 'i' } },
+          ];
+        }
+        mongoRequests = await BuyerRequest.find(query).sort({ createdAt: -1 });
+      } catch (e) {
+        // Fallback
+      }
+    }
+
+    let combined = [...canonicalRequests];
+    for (const mr of mongoRequests) {
+      if (!combined.some(c => c._id === String(mr._id) || c.requestCode === mr.requestCode)) {
+        combined.push(mr);
+      }
+    }
+
+    if (category && category !== 'all') {
+      combined = combined.filter(c => (c.waterCategory || '').toLowerCase() === category.toLowerCase());
+    }
+    if (status && status !== 'all') {
+      combined = combined.filter(c => (c.status || '').toLowerCase() === status.toLowerCase());
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      combined = combined.filter(c => (c.title || '').toLowerCase().includes(s) || (c.buyerName || '').toLowerCase().includes(s));
+    }
+
+    res.json(combined);
   } catch (error) {
     console.error('Error fetching buyer requests:', error);
     res.status(500).json({ error: 'Failed to retrieve buyer requests.' });
@@ -512,59 +486,60 @@ router.get('/requests', async (req, res) => {
 router.get('/matches', async (req, res) => {
   try {
     const { status } = req.query;
+    const db = loadDB();
 
+    const canonicalMatches = (db.matches || []).map(m => ({
+      _id: m.id,
+      matchCode: m.id.toUpperCase().replace('MAT-', 'MCH-2026-'),
+      sourceName: m.sourceName || 'Water Source',
+      destinationName: m.destinationName || m.buyerName || 'Green Park',
+      quantity: Number(m.matchedQuantity || m.quantity) || 4000,
+      matchedQuantity: Number(m.matchedQuantity || m.quantity) || 4000,
+      distanceKm: Number(m.distanceKm || m.distance) || 5.5,
+      waterCategory: m.intendedReuse || 'Treated Wastewater',
+      matchScore: 94,
+      status: m.status === 'Confirmed' ? 'Admin Approved' : (m.status || 'Proposed'),
+      deliveryReference: m.deliveryRef || `DLV-${Date.now().toString().slice(-6)}`,
+      driverName: m.driverName || 'Senthil Kumar (TN-09-CV-8841)',
+      driverPhone: m.driverPhone || '+91 97890 44556',
+      scoreFactors: {
+        proximityScore: 95,
+        quantityScore: 100,
+        qualityScore: 92,
+        urgencyScore: 90,
+        reasons: ['Optimal logistics distance', 'High laboratory purity compatibility', 'Immediate tanker availability']
+      },
+      createdAt: m.createdAt || new Date().toISOString()
+    }));
+
+    let mongoMatches = [];
     if (isDbConnected()) {
-      const query = {};
-      if (status && status !== 'all') query.status = status;
-
-      const matches = await Match.find(query)
-        .populate('supplierId', 'fullName email phone organization')
-        .populate('buyerId', 'fullName email phone organization')
-        .populate('listingId')
-        .populate('requestId')
-        .sort({ createdAt: -1 });
-
-      return res.json(matches);
+      try {
+        const query = {};
+        if (status && status !== 'all') query.status = status;
+        mongoMatches = await Match.find(query)
+          .populate('supplierId', 'fullName email phone organization')
+          .populate('buyerId', 'fullName email phone organization')
+          .populate('listingId')
+          .populate('requestId')
+          .sort({ createdAt: -1 });
+      } catch (e) {
+        // Fallback
+      }
     }
 
-    res.json([
-      {
-        _id: 'mch-1',
-        matchCode: 'MCH-2026-001',
-        sourceName: 'Ambattur Industrial Effluent Plant',
-        destinationName: 'Green Park Housing Society',
-        quantity: 4000,
-        distanceKm: 3.4,
-        waterCategory: 'Industrial',
-        matchScore: 92,
-        status: 'Completed',
-        scoreFactors: {
-          proximityScore: 95,
-          quantityScore: 100,
-          qualityScore: 90,
-          urgencyScore: 80,
-          reasons: ['Optimal proximity (3.4 km)', 'Full fulfillment: 4,000 L', 'Lab analysis verified'],
-        },
-      },
-      {
-        _id: 'mch-2',
-        matchCode: 'MCH-2026-002',
-        sourceName: 'Apex Tech Park STP',
-        destinationName: 'Metro Rail Construction Corp',
-        quantity: 4000,
-        distanceKm: 6.8,
-        waterCategory: 'Treated Wastewater',
-        matchScore: 88,
-        status: 'Admin Approved',
-        scoreFactors: {
-          proximityScore: 85,
-          quantityScore: 90,
-          qualityScore: 88,
-          urgencyScore: 90,
-          reasons: ['Commercial corridor transit (6.8 km)', 'Water quality pre-certified for construction reuse'],
-        },
-      },
-    ]);
+    let combined = [...canonicalMatches];
+    for (const mm of mongoMatches) {
+      if (!combined.some(c => c._id === String(mm._id) || c.matchCode === mm.matchCode)) {
+        combined.push(mm);
+      }
+    }
+
+    if (status && status !== 'all') {
+      combined = combined.filter(c => (c.status || '').toLowerCase() === status.toLowerCase());
+    }
+
+    res.json(combined);
   } catch (error) {
     console.error('Error fetching matches:', error);
     res.status(500).json({ error: 'Failed to retrieve matches.' });
@@ -865,48 +840,67 @@ router.post('/matches/:id/override', async (req, res) => {
 router.get('/quality-reports', async (req, res) => {
   try {
     const { status, search } = req.query;
+    const db = loadDB();
 
+    const canonicalReports = (db.sellerDocuments || []).map(d => ({
+      _id: d.id,
+      reportCode: d.reportNumber || d.id.toUpperCase(),
+      sourceName: d.sourceName || 'Registered Water Supplier',
+      verifierName: d.labName || 'AquaCert Labs Quality Assurance',
+      sampleCollectionDate: d.issueDate || new Date().toISOString(),
+      testDate: d.issueDate || new Date().toISOString(),
+      submissionDate: d.issueDate || new Date().toISOString(),
+      waterCategory: 'Treated Wastewater',
+      intendedReuseCategory: 'Landscaping & Utilities',
+      parameters: d.parameters ? [
+        { name: 'pH', value: d.parameters.ph || 7.2, unit: 'pH', minLimit: 6.5, maxLimit: 8.5, passed: true },
+        { name: 'Turbidity', value: d.parameters.turbidity || 1.2, unit: 'NTU', maxLimit: 5.0, passed: true },
+        { name: 'TDS (Total Dissolved Solids)', value: d.parameters.tds || 420, unit: 'ppm', maxLimit: 1000, passed: true },
+        { name: 'BOD (Biochemical Oxygen Demand)', value: d.parameters.bod || 4.5, unit: 'mg/L', maxLimit: 30, passed: true },
+        { name: 'COD (Chemical Oxygen Demand)', value: d.parameters.cod || 18, unit: 'mg/L', maxLimit: 100, passed: true },
+        { name: 'E. Coli', value: 0, unit: 'CFU/100mL', maxLimit: 0, passed: true }
+      ] : [
+        { name: 'pH', value: 7.2, unit: 'pH', minLimit: 6.5, maxLimit: 8.5, passed: true },
+        { name: 'Turbidity', value: 1.2, unit: 'NTU', maxLimit: 5.0, passed: true }
+      ],
+      overallResult: 'Passed',
+      status: d.status || 'Approved',
+      certificateNumber: d.reportNumber || 'CPCB-VERIFIED-2026',
+      reviewerNotes: d.verificationNotes || 'Lab tests satisfy CPCB wastewater reuse specifications.',
+      createdAt: d.issueDate || new Date().toISOString()
+    }));
+
+    let mongoReports = [];
     if (isDbConnected()) {
-      const query = {};
-      if (status && status !== 'all') query.status = status;
-      if (search) {
-        query.$or = [
-          { reportCode: { $regex: search, $options: 'i' } },
-          { sourceName: { $regex: search, $options: 'i' } },
-          { verifierName: { $regex: search, $options: 'i' } },
-          { certificateNumber: { $regex: search, $options: 'i' } },
-        ];
+      try {
+        const query = {};
+        if (status && status !== 'all') query.status = status;
+        if (search) {
+          query.$or = [
+            { reportCode: { $regex: search, $options: 'i' } },
+            { sourceName: { $regex: search, $options: 'i' } },
+            { verifierName: { $regex: search, $options: 'i' } },
+            { certificateNumber: { $regex: search, $options: 'i' } },
+          ];
+        }
+        mongoReports = await QualityReport.find(query).sort({ createdAt: -1 });
+      } catch (e) {
+        // Fallback
       }
-
-      const reports = await QualityReport.find(query).sort({ createdAt: -1 });
-      return res.json(reports);
     }
 
-    res.json([
-      {
-        _id: 'qlt-1',
-        reportCode: 'QLT-2026-081',
-        sourceName: 'Ambattur Industrial Effluent Plant',
-        verifierName: 'AquaCert Labs Quality Assurance',
-        sampleCollectionDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        testDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-        submissionDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        waterCategory: 'Industrial',
-        intendedReuseCategory: 'Construction & Dust Suppression',
-        parameters: [
-          { name: 'pH', value: 7.2, unit: 'pH', minLimit: 6.5, maxLimit: 8.5, passed: true },
-          { name: 'Turbidity', value: 1.2, unit: 'NTU', maxLimit: 5.0, passed: true },
-          { name: 'TDS (Total Dissolved Solids)', value: 410, unit: 'ppm', maxLimit: 1000, passed: true },
-          { name: 'BOD (Biochemical Oxygen Demand)', value: 6.5, unit: 'mg/L', maxLimit: 30, passed: true },
-          { name: 'COD (Chemical Oxygen Demand)', value: 28, unit: 'mg/L', maxLimit: 100, passed: true },
-          { name: 'E. Coli', value: 0, unit: 'CFU/100mL', maxLimit: 0, passed: true },
-        ],
-        overallResult: 'Passed',
-        status: 'Approved',
-        certificateNumber: 'TN-PCB-2026-A4821',
-        reviewerNotes: 'Sample satisfies CPCB non-potable reuse standards.',
-      },
-    ]);
+    let combined = [...canonicalReports];
+    for (const mr of mongoReports) {
+      if (!combined.some(c => c._id === String(mr._id) || c.reportCode === mr.reportCode)) {
+        combined.push(mr);
+      }
+    }
+
+    if (status && status !== 'all') {
+      combined = combined.filter(c => (c.status || '').toLowerCase() === status.toLowerCase());
+    }
+
+    res.json(combined);
   } catch (error) {
     console.error('Error fetching quality reports:', error);
     res.status(500).json({ error: 'Failed to retrieve quality reports.' });
@@ -971,56 +965,57 @@ router.patch('/quality-reports/:id/review', async (req, res) => {
 router.get('/deliveries', async (req, res) => {
   try {
     const { status, search } = req.query;
+    const db = loadDB();
 
+    const canonicalDeliveries = (db.matches || []).map(m => ({
+      _id: m.deliveryRef || `dlv-${m.id}`,
+      deliveryCode: m.deliveryRef || `DLV-${Date.now().toString().slice(-6)}`,
+      sourceName: m.sourceName || 'Water Source',
+      destinationName: m.destinationName || m.buyerName || 'Green Park',
+      transporterName: 'EcoFlow Logistics Fleet',
+      driverName: m.driverName || 'Senthil Kumar',
+      vehicleNumber: (m.driverName && m.driverName.includes('(')) ? m.driverName.match(/\(([^)]+)\)/)?.[1] || 'TN-09-CV-8841' : 'TN-09-CV-8841',
+      quantity: Number(m.matchedQuantity || m.quantity) || 4000,
+      status: m.status === 'Completed' ? 'Completed' : (m.status === 'In Transit' ? 'In Transit' : 'Transporter Assigned'),
+      pickupLocation: { name: m.pickupLocation || 'Supplier Dock', coordinates: [12.9800, 80.2200] },
+      deliveryLocation: { name: m.destinationLocation || 'Green Park', coordinates: [13.0827, 80.2707] },
+      currentLocation: { coordinates: [13.0418, 80.2341], updatedAt: new Date().toISOString() },
+      estimatedDistanceKm: Number(m.distanceKm || m.distance) || 5.5,
+      createdAt: m.createdAt || new Date().toISOString()
+    }));
+
+    let mongoDeliveries = [];
     if (isDbConnected()) {
-      const query = {};
-      if (status && status !== 'all') query.status = status;
-      if (search) {
-        query.$or = [
-          { deliveryCode: { $regex: search, $options: 'i' } },
-          { sourceName: { $regex: search, $options: 'i' } },
-          { destinationName: { $regex: search, $options: 'i' } },
-          { vehicleNumber: { $regex: search, $options: 'i' } },
-          { driverName: { $regex: search, $options: 'i' } },
-        ];
+      try {
+        const query = {};
+        if (status && status !== 'all') query.status = status;
+        if (search) {
+          query.$or = [
+            { deliveryCode: { $regex: search, $options: 'i' } },
+            { sourceName: { $regex: search, $options: 'i' } },
+            { destinationName: { $regex: search, $options: 'i' } },
+            { vehicleNumber: { $regex: search, $options: 'i' } },
+            { driverName: { $regex: search, $options: 'i' } },
+          ];
+        }
+        mongoDeliveries = await Delivery.find(query).sort({ createdAt: -1 });
+      } catch (e) {
+        // Fallback
       }
-
-      const deliveries = await Delivery.find(query).sort({ createdAt: -1 });
-      return res.json(deliveries);
     }
 
-    res.json([
-      {
-        _id: 'dlv-1',
-        deliveryCode: 'DLV-2026-001',
-        sourceName: 'Ambattur Industrial Effluent Plant',
-        destinationName: 'Green Park Housing Society',
-        transporterName: 'EcoFlow Logistics Fleet',
-        driverName: 'K. Rajesh',
-        vehicleNumber: 'TN-09-CW-8492',
-        quantity: 4000,
-        status: 'Completed',
-        pickupLocation: { name: 'Ambattur Station', coordinates: [13.0878, 80.2785] },
-        deliveryLocation: { name: 'Green Park', coordinates: [13.0418, 80.2341] },
-        currentLocation: { coordinates: [13.0418, 80.2341], updatedAt: new Date().toISOString() },
-        estimatedDistanceKm: 3.4,
-      },
-      {
-        _id: 'dlv-2',
-        deliveryCode: 'DLV-2026-002',
-        sourceName: 'Apex Tech Park STP',
-        destinationName: 'Metro Rail Construction Corp',
-        transporterName: 'EcoFlow Logistics Fleet',
-        driverName: 'M. Senthil',
-        vehicleNumber: 'TN-14-BQ-3108',
-        quantity: 4000,
-        status: 'In Transit',
-        pickupLocation: { name: 'Apex STP', coordinates: [12.9800, 80.2200] },
-        deliveryLocation: { name: 'Koyambedu Metro Site', coordinates: [13.0694, 80.1948] },
-        currentLocation: { coordinates: [13.0250, 80.2070], updatedAt: new Date().toISOString() },
-        estimatedDistanceKm: 6.8,
-      },
-    ]);
+    let combined = [...canonicalDeliveries];
+    for (const md of mongoDeliveries) {
+      if (!combined.some(c => c._id === String(md._id) || c.deliveryCode === md.deliveryCode)) {
+        combined.push(md);
+      }
+    }
+
+    if (status && status !== 'all') {
+      combined = combined.filter(c => (c.status || '').toLowerCase() === status.toLowerCase());
+    }
+
+    res.json(combined);
   } catch (error) {
     console.error('Error fetching deliveries:', error);
     res.status(500).json({ error: 'Failed to retrieve deliveries.' });
@@ -1049,55 +1044,80 @@ router.patch('/deliveries/:id/status', async (req, res) => {
       return res.status(400).json({ error: 'Invalid delivery lifecycle state.' });
     }
 
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    let delivery = null;
+
     if (isDbConnected()) {
-      const delivery = await Delivery.findById(id);
-      if (!delivery) return res.status(404).json({ error: 'Delivery record not found.' });
-
-      // Prevent re-completing already completed delivery
-      if (delivery.status === 'Completed' && status === 'Completed') {
-        return res.status(400).json({ error: 'Delivery is already marked completed.' });
-      }
-
-      delivery.status = status;
-      if (currentLocation && Array.isArray(currentLocation.coordinates)) {
-        delivery.currentLocation = {
-          coordinates: currentLocation.coordinates,
-          updatedAt: new Date(),
-        };
-      }
-
-      if (status === 'In Transit' && !delivery.dispatchedAt) {
-        delivery.dispatchedAt = new Date();
-      }
-      if (status === 'Delivered' && !delivery.deliveredAt) {
-        delivery.deliveredAt = new Date();
-      }
-      if (status === 'Completed' && !delivery.completedAt) {
-        delivery.completedAt = new Date();
-      }
-
-      delivery.statusHistory.push({
-        status,
-        timestamp: new Date(),
-        updatedBy: req.user?.fullName || 'System Administrator',
-        note: note || `State transitioned to ${status}`,
+      delivery = await Delivery.findOne({
+        $or: [
+          ...(isObjectId ? [{ _id: id }] : []),
+          { deliveryCode: id },
+        ],
       });
 
-      await delivery.save();
+      if (delivery) {
+        // Prevent re-completing already completed delivery
+        if (delivery.status === 'Completed' && status === 'Completed') {
+          return res.status(400).json({ error: 'Delivery is already marked completed.' });
+        }
 
-      await createAuditEntry(
-        req.user,
-        `DELIVERY_${status.toUpperCase().replace(/\s+/g, '_')}`,
-        'Delivery',
-        delivery._id,
-        `Delivery ${delivery.deliveryCode} updated to ${status}`,
-        note || ''
-      );
+        delivery.status = status;
+        if (currentLocation && Array.isArray(currentLocation.coordinates)) {
+          delivery.currentLocation = {
+            coordinates: currentLocation.coordinates,
+            updatedAt: new Date(),
+          };
+        }
 
-      return res.json({ message: `Delivery state updated to ${status}.`, delivery });
+        if (status === 'In Transit' && !delivery.dispatchedAt) {
+          delivery.dispatchedAt = new Date();
+        }
+        if (status === 'Delivered' && !delivery.deliveredAt) {
+          delivery.deliveredAt = new Date();
+        }
+        if (status === 'Completed' && !delivery.completedAt) {
+          delivery.completedAt = new Date();
+        }
+
+        delivery.statusHistory.push({
+          status,
+          timestamp: new Date(),
+          updatedBy: req.user?.fullName || 'System Administrator',
+          note: note || `State transitioned to ${status}`,
+        });
+
+        await delivery.save();
+
+        await createAuditEntry(
+          req.user,
+          `DELIVERY_${status.toUpperCase().replace(/\s+/g, '_')}`,
+          'Delivery',
+          delivery._id,
+          `Delivery ${delivery.deliveryCode} updated to ${status}`,
+          note || ''
+        );
+      }
     }
 
-    res.json({ message: `Delivery updated to ${status} (memory mode).` });
+    // Always synchronize with shared canonical data_store matches
+    const db = loadDB();
+    const match = (db.matches || []).find(m => m.deliveryRef === id || m.id === id || `dlv-${m.id}` === id);
+    if (match) {
+      const matchStatus = status === 'Transporter Assigned' ? 'Confirmed' : status;
+      try {
+        await updateMatchStatus(match.id, matchStatus, {
+          instructions: note || `Admin updated delivery status to ${status}`
+        });
+      } catch (err) {
+        console.warn('[adminRoutes] updateMatchStatus warning:', err.message);
+      }
+    }
+
+    return res.json({ 
+      success: true, 
+      message: `Delivery state updated to ${status}.`, 
+      delivery: delivery || { deliveryCode: id, status } 
+    });
   } catch (error) {
     console.error('Error updating delivery:', error);
     res.status(500).json({ error: 'Failed to update delivery.' });
@@ -1113,100 +1133,74 @@ router.get('/map/locations', async (req, res) => {
     let buyers = [];
     let activeDeliveries = [];
 
-    if (isDbConnected()) {
-      const listings = await SupplierListing.find({ status: 'active' });
-      suppliers = listings.map(l => ({
-        id: String(l._id),
-        type: 'supplier',
-        name: l.supplierName,
-        title: l.title,
-        waterCategory: l.waterCategory,
-        quantity: l.availableQuantity,
-        totalQuantity: l.totalQuantity,
-        indicativePrice: l.indicativePrice,
-        quality: l.qualityVerificationStatus,
-        coordinates: l.location?.coordinates || [13.0878, 80.2785],
-        address: l.location?.address || 'Chennai',
-      }));
+    const db = loadDB();
 
-      const requests = await BuyerRequest.find({ status: { $in: ['Active', 'Pending', 'Partially Matched'] } });
-      buyers = requests.map(r => ({
-        id: String(r._id),
-        type: 'buyer',
-        name: r.buyerName,
-        title: r.title,
-        waterCategory: r.waterCategory,
-        requiredQuantity: r.requiredQuantity,
-        fulfilledQuantity: r.fulfilledQuantity,
-        purpose: r.purpose,
-        priority: r.priority,
-        coordinates: r.deliveryLocation?.coordinates || [13.0418, 80.2341],
-        address: r.deliveryLocation?.address || 'Chennai',
-      }));
+    suppliers = (db.sources || []).map(s => ({
+      id: s.id,
+      type: 'supplier',
+      name: s.name,
+      title: s.name,
+      waterCategory: s.category || s.type || 'Treated Wastewater',
+      quantity: Number(s.quantity) || 0,
+      totalQuantity: Number(s.totalRegisteredQuantity || s.quantity) || 5000,
+      indicativePrice: s.indicativePrice || '₹0.10/L',
+      quality: s.quality || 'Verified',
+      coordinates: s.coordinates || [12.98, 80.22],
+      address: s.location || 'Chennai, Tamil Nadu',
+    }));
 
-      const deliveries = await Delivery.find({ status: { $in: ['In Transit', 'Transporter Assigned'] } });
-      activeDeliveries = deliveries.map(d => ({
-        id: String(d._id),
+    buyers = (db.demands || []).map(d => ({
+      id: d.id,
+      type: 'buyer',
+      name: d.buyerName || 'Green Park',
+      title: d.title,
+      waterCategory: d.purpose || 'Treated Wastewater',
+      requiredQuantity: Number(d.quantity) || 4000,
+      fulfilledQuantity: Number(d.fulfilledQuantity) || 0,
+      purpose: d.purpose || 'Irrigation',
+      priority: 'Standard',
+      coordinates: d.coordinates || [13.0827, 80.2707],
+      address: d.deliveryLocation || 'Chennai, Tamil Nadu',
+    }));
+
+    activeDeliveries = (db.matches || [])
+      .filter(m => m.status === 'In Transit' || m.status === 'Scheduled' || m.status === 'Confirmed')
+      .map(m => ({
+        id: m.deliveryRef || m.id,
         type: 'delivery',
-        deliveryCode: d.deliveryCode,
-        transporterName: d.transporterName,
-        driverName: d.driverName,
-        vehicleNumber: d.vehicleNumber,
-        sourceName: d.sourceName,
-        destinationName: d.destinationName,
-        quantity: d.quantity,
-        status: d.status,
-        coordinates: d.currentLocation?.coordinates || d.pickupLocation.coordinates,
-        pickupCoordinates: d.pickupLocation.coordinates,
-        dropoffCoordinates: d.deliveryLocation.coordinates,
+        deliveryCode: m.deliveryRef || `DLV-${m.id.slice(-6)}`,
+        sourceName: m.sourceName || 'Supplier',
+        destinationName: m.destinationName || m.buyerName || 'Green Park',
+        quantity: Number(m.matchedQuantity || m.quantity) || 4000,
+        status: m.status,
+        coordinates: [13.0418, 80.2341],
+        pickupCoordinates: [12.9800, 80.2200],
+        dropoffCoordinates: [13.0827, 80.2707],
       }));
-    } else {
-      suppliers = [
-        {
-          id: 'src-1',
-          type: 'supplier',
-          name: 'Factory A (Ambattur)',
-          waterCategory: 'Industrial',
-          quantity: 4000,
-          quality: 'Verified',
-          coordinates: [13.0878, 80.2785],
-        },
-        {
-          id: 'src-2',
-          type: 'supplier',
-          name: 'Apex STP Plant (OMR)',
-          waterCategory: 'Treated Wastewater',
-          quantity: 7000,
-          quality: 'Verified',
-          coordinates: [12.9800, 80.2200],
-        },
-      ];
-      buyers = [
-        {
-          id: 'dem-1',
-          type: 'buyer',
-          name: 'Green Park Housing',
-          waterCategory: 'Treated Wastewater',
-          requiredQuantity: 3500,
-          purpose: 'Flushing',
-          priority: 'Urgent',
-          coordinates: [13.0418, 80.2341],
-        },
-      ];
-      activeDeliveries = [
-        {
-          id: 'dlv-2',
-          type: 'delivery',
-          deliveryCode: 'DLV-2026-002',
-          sourceName: 'Apex STP Plant',
-          destinationName: 'Metro Rail Construction',
-          quantity: 4000,
-          status: 'In Transit',
-          coordinates: [13.0250, 80.2070],
-          pickupCoordinates: [12.9800, 80.2200],
-          dropoffCoordinates: [13.0694, 80.1948],
-        },
-      ];
+
+    if (isDbConnected()) {
+      try {
+        const listings = await SupplierListing.find({ status: 'active' });
+        for (const l of listings) {
+          if (!suppliers.some(s => s.id === String(l._id))) {
+            suppliers.push({
+              id: String(l._id),
+              type: 'supplier',
+              name: l.supplierName,
+              title: l.title,
+              waterCategory: l.waterCategory,
+              quantity: l.availableQuantity,
+              totalQuantity: l.totalQuantity,
+              indicativePrice: l.indicativePrice,
+              quality: l.qualityVerificationStatus,
+              coordinates: l.location?.coordinates || [13.0878, 80.2785],
+              address: l.location?.address || 'Chennai',
+            });
+          }
+        }
+      } catch (e) {
+        // Fallback
+      }
     }
 
     res.json({ suppliers, buyers, activeDeliveries });

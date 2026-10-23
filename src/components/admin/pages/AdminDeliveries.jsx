@@ -26,7 +26,7 @@ const LIFECYCLE_STAGES = [
   'Completed',
 ];
 
-export default function AdminDeliveries({ onNavigate, showToast, globalSearch = '' }) {
+export default function AdminDeliveries({ onNavigate, showToast, globalSearch = '', refreshTrigger }) {
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -40,9 +40,9 @@ export default function AdminDeliveries({ onNavigate, showToast, globalSearch = 
 
   const effectiveSearch = globalSearch || localSearch;
 
-  const fetchDeliveries = async () => {
+  const fetchDeliveries = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const res = await fetch(`/api/deliveries?status=${statusFilter}`);
       if (res.ok) {
         const json = await res.json();
@@ -56,8 +56,8 @@ export default function AdminDeliveries({ onNavigate, showToast, globalSearch = 
   };
 
   useEffect(() => {
-    fetchDeliveries();
-  }, [statusFilter]);
+    fetchDeliveries(deliveries.length > 0);
+  }, [statusFilter, refreshTrigger]);
 
   const filteredDeliveries = deliveries.filter((d) => {
     if (effectiveSearch) {
@@ -98,6 +98,8 @@ export default function AdminDeliveries({ onNavigate, showToast, globalSearch = 
 
       setStatusUpdateModal({ isOpen: false, delivery: null, nextStatus: '' });
       fetchDeliveries();
+      window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'admin_delivery_updated' } }));
+      localStorage.setItem('reloop_last_mutation', String(Date.now()));
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.message });
     } finally {

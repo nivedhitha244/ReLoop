@@ -1,91 +1,23 @@
 // Order & Payment state management with LocalStorage persistence
 
-const INITIAL_ORDERS = [
-  {
-    id: 'ORD-2026-891',
-    date: '22 Oct 2026, 11:15 AM',
-    status: 'In Transit', // 'In Transit' | 'Scheduled' | 'Delivered' | 'Cancelled'
-    supplierName: 'Factory A STP Plant',
-    waterType: 'Industrial Recycled',
-    volume: 4000,
-    destination: 'Green Park Facility Tank #1',
-    driver: 'K. Ramesh (+91 98401 22334)',
-    tanker: 'EcoFlow Tanker TN-09-AX-4421',
-    eta: 'In Transit — 20 mins away',
-    qaStatus: 'AquaCert QA-9921 (Passed)',
-    paymentMethod: 'UPI (nivi@okaxis)',
-    transactionId: 'TXN-902188472',
-    costBreakdown: {
-      resourceFee: 800.00,      // 4000 L @ ₹0.20/L
-      verificationFee: 150.00,  // Lab QA inspection
-      transportFee: 250.00,     // Tanker delivery
-      greenDiscount: -50.00,    // Sustainable buyer credit
-      total: 1150.00
-    },
-    cancellationPolicy: {
-      deductionAmount: 150.00,
-      refundAmount: 1000.00,
-      tier: 'Standard Cancel (< 2h to arrival)'
-    },
-    refundDetails: null
-  },
-  {
-    id: 'ORD-2026-874',
-    date: '21 Oct 2026, 03:45 PM',
-    status: 'Scheduled',
-    supplierName: 'IT Park RO Reject Basin',
-    waterType: 'RO Reject Water',
-    volume: 5000,
-    destination: 'Green Park Sports Arena',
-    driver: 'P. Vignesh (+91 98412 88712)',
-    tanker: 'EcoFlow Tanker TN-02-ZZ-8190',
-    eta: 'Tomorrow at 09:00 AM',
-    qaStatus: 'AquaCert QA-9860 (Passed)',
-    paymentMethod: 'Visa Card ending in 4242',
-    transactionId: 'TXN-881729012',
-    costBreakdown: {
-      resourceFee: 900.00,
-      verificationFee: 150.00,
-      transportFee: 200.00,
-      greenDiscount: -50.00,
-      total: 1200.00
-    },
-    cancellationPolicy: {
-      deductionAmount: 100.00,
-      refundAmount: 1100.00,
-      tier: 'Early Cancellation (> 12h to arrival)'
-    },
-    refundDetails: null
-  },
-  {
-    id: 'ORD-2026-842',
-    date: '19 Oct 2026, 10:20 AM',
-    status: 'Delivered',
-    supplierName: 'Apartment Complex Greywater',
-    waterType: 'Greywater Media',
-    volume: 3000,
-    destination: 'Green Park Landscape Zone',
-    driver: 'M. Senthil (+91 98842 55441)',
-    tanker: 'EcoFlow Tanker TN-07-CB-1190',
-    eta: 'Delivered on 19 Oct, 11:45 AM',
-    qaStatus: 'AquaCert QA-9710 (Passed)',
-    paymentMethod: 'Net Banking (HDFC Bank)',
-    transactionId: 'TXN-764910283',
-    costBreakdown: {
-      resourceFee: 540.00,
-      verificationFee: 150.00,
-      transportFee: 180.00,
-      greenDiscount: -30.00,
-      total: 840.00
-    },
-    cancellationPolicy: null,
-    refundDetails: null
-  }
-];
+const INITIAL_ORDERS = [];
 
-const STORAGE_KEY = 'reloop_orders_data_v1';
+const STORAGE_KEY = 'reloop_orders_fresh_v3';
 
 export const orderService = {
+  clearAllOrders: () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('reloop_orders_data_clean');
+      localStorage.setItem('reloop_last_mutation', Date.now().toString());
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reloop:data_updated'));
+      }
+    } catch (e) {
+      console.error('Failed to clear orders', e);
+    }
+  },
+
   getOrders: () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -101,6 +33,10 @@ export const orderService = {
   saveOrders: (orders) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+      localStorage.setItem('reloop_last_mutation', Date.now().toString());
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reloop:data_updated'));
+      }
     } catch (e) {
       console.error('Failed to save orders', e);
     }

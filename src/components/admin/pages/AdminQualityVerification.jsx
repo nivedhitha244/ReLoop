@@ -18,7 +18,7 @@ import StatusBadge from '../common/StatusBadge';
 import ConfirmationDialog from '../common/ConfirmationDialog';
 import SkeletonLoader from '../common/SkeletonLoader';
 
-export default function AdminQualityVerification({ onNavigate, showToast, globalSearch = '' }) {
+export default function AdminQualityVerification({ onNavigate, showToast, globalSearch = '', refreshTrigger }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -32,9 +32,9 @@ export default function AdminQualityVerification({ onNavigate, showToast, global
 
   const effectiveSearch = globalSearch || localSearch;
 
-  const fetchReports = async () => {
+  const fetchReports = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const res = await fetch(`/api/quality-reports?status=${statusFilter}`);
       if (res.ok) {
         const json = await res.json();
@@ -48,8 +48,8 @@ export default function AdminQualityVerification({ onNavigate, showToast, global
   };
 
   useEffect(() => {
-    fetchReports();
-  }, [statusFilter]);
+    fetchReports(reports.length > 0);
+  }, [statusFilter, refreshTrigger]);
 
   const filteredReports = reports.filter((r) => {
     if (effectiveSearch) {
@@ -91,6 +91,8 @@ export default function AdminQualityVerification({ onNavigate, showToast, global
       setReviewModal({ isOpen: false, report: null, status: '' });
       if (inspectModal.isOpen) setInspectModal({ isOpen: false, report: null });
       fetchReports();
+      window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action: 'admin_quality_reviewed' } }));
+      localStorage.setItem('reloop_last_mutation', String(Date.now()));
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.message });
     } finally {

@@ -69,7 +69,7 @@ const MatchSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Proposed', 'Matched', 'Admin Approved', 'Rejected', 'Overridden', 'In Delivery', 'Completed', 'Cancelled'],
+      enum: ['Proposed', 'Accepted', 'Scheduled', 'Confirmed', 'Matched', 'Admin Approved', 'In Transit', 'Rejected', 'Overridden', 'In Delivery', 'Completed', 'Cancelled'],
       default: 'Proposed',
     },
     qualityVerified: {

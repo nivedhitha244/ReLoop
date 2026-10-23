@@ -19,7 +19,8 @@ import {
   RefreshCw, 
   Inbox, 
   Award,
-  Bell
+  Bell,
+  Download
 } from 'lucide-react';
 
 // ============================================================================
@@ -446,8 +447,11 @@ export function MyWaterSourcesTab({
   const verifications = ['All', 'Verified', 'Pending Verification', 'Expired Documentation'];
 
   const filtered = sources.filter(s => {
-    const matchesSearch = !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.type.toLowerCase().includes(search.toLowerCase()) || s.location.toLowerCase().includes(search.toLowerCase());
-    const matchesType = selectedType === 'All' || s.type.toLowerCase().includes(selectedType.toLowerCase());
+    const matchesSearch = !search || 
+      (s.name && s.name.toLowerCase().includes(search.toLowerCase())) || 
+      (s.type && s.type.toLowerCase().includes(search.toLowerCase())) || 
+      (s.location && s.location.toLowerCase().includes(search.toLowerCase()));
+    const matchesType = selectedType === 'All' || (s.type && s.type.toLowerCase().includes(selectedType.toLowerCase()));
     const matchesStatus = selectedStatus === 'All' || s.availabilityStatus === selectedStatus;
     const matchesVerif = selectedVerification === 'All' || s.verificationStatus === selectedVerification;
     return matchesSearch && matchesType && matchesStatus && matchesVerif;
@@ -891,28 +895,28 @@ export function MyMatchesTab({
                   <span className="delivery-ref-tag">Waybill: {mat.deliveryRef}</span>
                 )}
               </div>
-              <span className={`status-pill pill-${mat.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                {mat.status}
+              <span className={`status-pill pill-${(mat.status || 'Pending').toLowerCase().replace(/\s+/g, '-')}`}>
+                {mat.status || 'Scheduled'}
               </span>
             </div>
 
             <div className="match-body-grid">
               <div>
                 <span className="m-label">Buyer Facility</span>
-                <strong className="m-val text-slate-800">{mat.buyerName}</strong>
-                <span className="text-xs text-slate-500">Intended Reuse: {mat.intendedReuse}</span>
+                <strong className="m-val text-slate-800">{mat.buyerName || 'Buyer Facility'}</strong>
+                <span className="text-xs text-slate-500">Intended Reuse: {mat.intendedReuse || 'General Reuse'}</span>
               </div>
 
               <div>
                 <span className="m-label">Water Source</span>
-                <span className="m-val font-semibold text-teal-800">{mat.sourceName}</span>
-                <span className="text-xs text-slate-500">Scheduled Date: {mat.scheduledDeliveryDate || mat.matchDate}</span>
+                <span className="m-val font-semibold text-teal-800">{mat.sourceName || 'Water Source'}</span>
+                <span className="text-xs text-slate-500">Scheduled Date: {mat.scheduledDeliveryDate || mat.matchDate || 'Scheduled'}</span>
               </div>
 
               <div>
                 <span className="m-label">Volume Reused</span>
                 <span className="m-val font-bold text-emerald-700 text-lg">
-                  {mat.matchedQuantity.toLocaleString()} L
+                  {(mat.matchedQuantity || mat.quantity || 0).toLocaleString()} L
                 </span>
                 <span className="text-xs text-slate-500">Est. Transport: ₹{mat.estimatedCost || 1500}</span>
               </div>
@@ -920,18 +924,18 @@ export function MyMatchesTab({
               <div>
                 <span className="m-label">Tanker Logistics</span>
                 <span className="m-val text-xs text-slate-700">{mat.driverName || 'Tanker Fleet'}</span>
-                <span className="text-xs text-slate-500">Contact: {mat.driverPhone || mat.buyerContact}</span>
+                <span className="text-xs text-slate-500">Contact: {mat.driverPhone || mat.buyerContact || '+91 97890 44556'}</span>
               </div>
             </div>
 
             {/* Stepper Progress Bar for Match Lifecycle */}
             <div className="match-lifecycle-stepper">
-              {['Accepted', 'Scheduled', 'In Transit', 'Delivered', 'Completed'].map((stepName, idx) => {
-                const statusOrder = ['Pending', 'Accepted', 'Scheduled', 'In Transit', 'Delivered', 'Completed'];
-                const currentIdx = statusOrder.indexOf(mat.status);
+              {['Accepted', 'Scheduled', 'Confirmed', 'In Transit', 'Delivered', 'Completed'].map((stepName) => {
+                const statusOrder = ['Pending', 'Accepted', 'Scheduled', 'Confirmed', 'In Transit', 'Delivered', 'Completed'];
+                const currentIdx = statusOrder.indexOf(mat.status || 'Scheduled');
                 const stepIdx = statusOrder.indexOf(stepName);
                 const isPassed = currentIdx >= stepIdx;
-                const isCurrent = mat.status === stepName;
+                const isCurrent = (mat.status || 'Scheduled') === stepName;
 
                 return (
                   <div key={stepName} className={`lifecycle-step ${isPassed ? 'step-passed' : ''} ${isCurrent ? 'step-current' : ''}`}>
@@ -951,7 +955,7 @@ export function MyMatchesTab({
               </div>
 
               <div className="actions-cluster">
-                {mat.status === 'Scheduled' && (
+                {(mat.status === 'Scheduled' || mat.status === 'Confirmed' || mat.status === 'Accepted') && (
                   <button 
                     className="btn-status-advance"
                     onClick={() => onUpdateStatus(mat.id, { status: 'In Transit' })}
@@ -1025,6 +1029,82 @@ export function QualityVerificationTab({
   });
 
   const hasExpired = documents.some(d => d.status === 'Expired');
+
+  const handleDownloadLabCert = (doc) => {
+    const reportNum = doc.reportNumber || doc.id || 'NABL-TN-2026-9912';
+    const paramsList = doc.parameters ? Object.entries(doc.parameters).map(([k, v]) => `
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center;">
+        <div style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700;">${k}</div>
+        <div style="font-size: 16px; color: #0c6e5d; font-weight: 800; margin-top: 4px;">${v}</div>
+      </div>
+    `).join('') : '<p>All parameters conform to TNPCB Secondary Reuse Standards.</p>';
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ReLoop 2.0 - NABL Water Quality Laboratory Certificate #${reportNum}</title>
+  <style>
+    body { font-family: 'Segoe UI', Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 40px; color: #0f172a; }
+    .cert-sheet { max-width: 820px; margin: 0 auto; background: #fff; border: 2px solid #0c6e5d; border-radius: 12px; padding: 40px; box-shadow: 0 8px 30px rgba(0,0,0,0.06); }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+    .badge { background: #ecfdf5; color: #065f46; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; border: 1px solid #a7f3d0; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0; }
+    .footer { margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
+    @media print { body { padding: 0; background: #fff; } .cert-sheet { box-shadow: none; border-color: #0c6e5d; } }
+  </style>
+</head>
+<body>
+  <div class="cert-sheet">
+    <div class="header">
+      <div>
+        <h2 style="margin: 0; color: #0c6e5d;">💧 AquaCert NABL Testing Laboratories</h2>
+        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">ISO/IEC 17025:2017 Accredited Laboratory | TNPCB Authorized</div>
+      </div>
+      <div class="badge">CPCB VERIFIED APPROVED</div>
+    </div>
+    <div style="margin-top: 24px;">
+      <h3 style="margin: 0 0 8px; font-size: 18px;">Certificate of Water Quality & Verification</h3>
+      <p style="font-size: 13.5px; color: #475569; margin: 0 0 16px;">
+        Certificate Number: <strong>${reportNum}</strong> | Issued For: <strong>${doc.sourceName || 'Treated STP Facility'}</strong>
+      </p>
+      <div style="font-size: 13px; color: #64748b;">
+        Audit Status: <strong style="color: #059669;">${doc.status || 'Verified'}</strong> | Valid Until: <strong>${doc.expiryDate || 'Dec 31, 2026'}</strong>
+      </div>
+    </div>
+    <h4 style="margin: 24px 0 8px; font-size: 14px; text-transform: uppercase; color: #334155;">Physical & Chemical Parameter Analysis</h4>
+    <div class="grid">
+      ${paramsList}
+    </div>
+    ${doc.verificationNotes ? `<div style="background: #f1f5f9; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #334155;"><strong>Verifier Notes:</strong> ${doc.verificationNotes}</div>` : ''}
+    <div class="footer">
+      <div>
+        <strong>Digital Hash:</strong> <code>0x${Math.random().toString(16).substr(2, 16)}fa18</code><br>
+        <strong>Registry:</strong> ReLoop National Water Circularity Exchange
+      </div>
+      <div style="text-align: right;">
+        <strong>Authorized Signatory:</strong><br>
+        Chief Water Quality Verifier, AquaCert
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ReLoop_Lab_Certificate_${reportNum}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    if (showToast) {
+      showToast(`Lab Certificate #${reportNum} downloaded to your computer!`, 'success');
+    }
+  };
 
   return (
     <div className="tab-page-container">
@@ -1137,8 +1217,9 @@ export function QualityVerificationTab({
                 <span className="file-info-tag">{doc.fileUrl?.split('/').pop()} ({doc.fileSize || '1.2 MB'})</span>
                 <button 
                   className="btn-download-cert"
-                  onClick={() => showToast(`Downloading official lab report #${doc.reportNumber || doc.id}...`)}
+                  onClick={() => handleDownloadLabCert(doc)}
                 >
+                  <Download size={14} style={{ marginRight: '6px' }} />
                   Download Certificate PDF
                 </button>
               </div>
@@ -1323,6 +1404,26 @@ export function ImpactReportsTab({
     { month: "Oct", listed: totalListed, reused: totalReused }
   ];
 
+  const handleExportSellerImpactCsv = () => {
+    const csvContent =
+      'Month,Water Listed (L),Water Reused (L),Freshwater Preserved (L),CO2 Avoided (kg)\n' +
+      monthlyTrends.map(m => `${m.month},${m.listed},${m.reused},${Math.round(m.reused * 1.8)},${(m.reused * 0.0023).toFixed(1)}`).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ReLoop_Seller_Impact_Report_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    if (showToast) {
+      showToast('Seller Impact Report CSV downloaded to your computer!', 'success');
+    }
+  };
+
   return (
     <div className="tab-page-container">
       <div className="tab-header-banner flex-between">
@@ -1333,16 +1434,27 @@ export function ImpactReportsTab({
           </p>
         </div>
 
-        <div className="time-range-selector">
-          {['7d', '30d', '90d', 'All'].map((r) => (
-            <button
-              key={r}
-              className={`range-btn ${timeRange === r ? 'active' : ''}`}
-              onClick={() => setTimeRange(r)}
-            >
-              {r}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="time-range-selector">
+            {['7d', '30d', '90d', 'All'].map((r) => (
+              <button
+                key={r}
+                className={`range-btn ${timeRange === r ? 'active' : ''}`}
+                onClick={() => setTimeRange(r)}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+
+          <button
+            className="btn-primary-action-pill"
+            onClick={handleExportSellerImpactCsv}
+            style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Download size={14} />
+            <span>Download CSV</span>
+          </button>
         </div>
       </div>
 

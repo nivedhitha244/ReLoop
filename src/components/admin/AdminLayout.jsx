@@ -35,6 +35,9 @@ export default function AdminLayout({ currentUser, onLogout }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const [refreshTrigger, setRefreshTrigger] = useState(Date.now());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Poll or load notifications for Topbar & Sidebar
   const fetchNotifications = async () => {
     try {
@@ -49,10 +52,36 @@ export default function AdminLayout({ currentUser, onLogout }) {
     }
   };
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    setRefreshTrigger(Date.now());
+    await fetchNotifications();
+    setTimeout(() => setIsRefreshing(false), 500);
+    setToast({ type: 'success', message: 'All admin ledgers and metrics refreshed.' });
+  };
+
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000); // refresh alerts periodically
-    return () => clearInterval(interval);
+
+    const handleSync = () => {
+      setRefreshTrigger(Date.now());
+      fetchNotifications();
+    };
+
+    window.addEventListener('reloop:data_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    // Continuous 3.5s real-time live poll so any external updates sync immediately
+    const interval = setInterval(() => {
+      setRefreshTrigger(Date.now());
+      fetchNotifications();
+    }, 3500);
+
+    return () => {
+      window.removeEventListener('reloop:data_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+      clearInterval(interval);
+    };
   }, []);
 
   const handleMarkAllRead = async () => {
@@ -94,38 +123,40 @@ export default function AdminLayout({ currentUser, onLogout }) {
           currentUser={currentUser}
           onLogout={onLogout}
           onNavigateSection={setCurrentSection}
+          onRefresh={handleManualRefresh}
+          isRefreshing={isRefreshing}
         />
 
-        {/* Dynamic Section View */}
+        {/* Dynamic Section View with Live Sync Trigger */}
         {currentSection === 'overview' && (
-          <AdminOverview onNavigate={setCurrentSection} globalSearch={globalSearch} />
+          <AdminOverview onNavigate={setCurrentSection} globalSearch={globalSearch} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'map' && (
-          <AdminLogisticsMap onNavigate={setCurrentSection} globalSearch={globalSearch} />
+          <AdminLogisticsMap onNavigate={setCurrentSection} globalSearch={globalSearch} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'matching' && (
-          <AdminMatchingHub onNavigate={setCurrentSection} showToast={setToast} />
+          <AdminMatchingHub onNavigate={setCurrentSection} showToast={setToast} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'supply-requests' && (
-          <AdminSupplyRequests onNavigate={setCurrentSection} showToast={setToast} globalSearch={globalSearch} />
+          <AdminSupplyRequests onNavigate={setCurrentSection} showToast={setToast} globalSearch={globalSearch} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'deliveries' && (
-          <AdminDeliveries onNavigate={setCurrentSection} showToast={setToast} globalSearch={globalSearch} />
+          <AdminDeliveries onNavigate={setCurrentSection} showToast={setToast} globalSearch={globalSearch} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'quality' && (
-          <AdminQualityVerification onNavigate={setCurrentSection} showToast={setToast} globalSearch={globalSearch} />
+          <AdminQualityVerification onNavigate={setCurrentSection} showToast={setToast} globalSearch={globalSearch} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'users' && (
-          <AdminUserManagement onNavigate={setCurrentSection} showToast={setToast} globalSearch={globalSearch} />
+          <AdminUserManagement onNavigate={setCurrentSection} showToast={setToast} globalSearch={globalSearch} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'impact' && (
-          <AdminEnvironmentalImpact onNavigate={setCurrentSection} />
+          <AdminEnvironmentalImpact onNavigate={setCurrentSection} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'alerts-reports' && (
-          <AdminAlertsReports onNavigate={setCurrentSection} showToast={setToast} />
+          <AdminAlertsReports onNavigate={setCurrentSection} showToast={setToast} refreshTrigger={refreshTrigger} />
         )}
         {currentSection === 'audit-logs' && (
-          <AdminAuditLogs onNavigate={setCurrentSection} globalSearch={globalSearch} />
+          <AdminAuditLogs onNavigate={setCurrentSection} globalSearch={globalSearch} refreshTrigger={refreshTrigger} />
         )}
       </div>
 

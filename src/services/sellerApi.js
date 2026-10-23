@@ -19,17 +19,24 @@ const fallbackSellerData = {
     contactPerson: "Dr. Rajesh Sundaram, Plant Operations Director"
   },
   stats: {
-    totalWaterListed: 29000,
-    activeSourcesCount: 2,
-    availableWater: 14000,
-    pendingRequests: 2,
-    successfulMatches: 2,
-    totalWaterReusedDelivered: 9000,
-    utilizationRate: 64,
-    freshwaterSaved: 9000,
-    freshwaterSavedEq: 18000,
-    co2AvoidedKg: 14.4,
-    revenueGenerated: 3000
+    totalWaterListed: 0,
+    activeSourcesCount: 0,
+    availableWater: 0,
+    pendingRequests: 0,
+    successfulMatches: 0,
+    totalWaterReusedDelivered: 0,
+    utilizationRate: 0,
+    freshwaterSaved: 0,
+    freshwaterSavedEq: 0,
+    co2AvoidedKg: 0,
+    revenueGenerated: 0
+  }
+};
+
+const notifyMutation = (action) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('reloop:data_updated', { detail: { action } }));
+    localStorage.setItem('reloop_last_mutation', String(Date.now()));
   }
 };
 
@@ -87,6 +94,7 @@ export const sellerApi = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create water source');
+      notifyMutation('create_source');
       return data;
     } catch (e) {
       console.error("[sellerApi] Error creating source", e);
@@ -103,6 +111,7 @@ export const sellerApi = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update water source');
+      notifyMutation('update_source');
       return data;
     } catch (e) {
       console.error("[sellerApi] Error updating source", e);
@@ -119,6 +128,7 @@ export const sellerApi = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update availability');
+      notifyMutation('toggle_availability');
       return data;
     } catch (e) {
       console.error("[sellerApi] Error toggling availability", e);
@@ -135,6 +145,7 @@ export const sellerApi = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update quantity');
+      notifyMutation('update_quantity');
       return data;
     } catch (e) {
       console.error("[sellerApi] Error updating quantity", e);
@@ -149,6 +160,7 @@ export const sellerApi = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete source');
+      notifyMutation('delete_source');
       return data;
     } catch (e) {
       console.error("[sellerApi] Error deleting source", e);
@@ -174,6 +186,7 @@ export const sellerApi = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to accept request');
+      notifyMutation('accept_request');
       return data;
     } catch (e) {
       console.error("[sellerApi] Error accepting request", e);
@@ -190,6 +203,7 @@ export const sellerApi = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to reject request');
+      notifyMutation('reject_request');
       return data;
     } catch (e) {
       console.error("[sellerApi] Error rejecting request", e);

@@ -3,15 +3,23 @@ import { Droplet, Check, Leaf, AlertTriangle, ArrowRight } from 'lucide-react';
 
 export default function MetricsCards({ stats, onActionClick }) {
   const formatLiters = (num) => {
-    return Number(num || 0).toLocaleString() + ' L';
+    return Number(num !== undefined && num !== null ? num : 0).toLocaleString() + ' L';
   };
+
+  const totalDemandVal = stats?.totalDemand ?? 0;
+  const activeRequestsCountVal = stats?.activeRequestsCount ?? 0;
+  const matchedQuantityVal = stats?.matchedQuantity ?? 0;
+  const matchedPercentVal = stats?.matchedPercent ?? 0;
+  const freshwaterSavedVal = stats?.freshwaterSaved ?? 0;
+  const freshwaterSavedEqVal = stats?.freshwaterSavedEq ?? 0;
+  const unmetDemandVal = stats?.unmetDemand ?? 0;
 
   const cards = [
     {
       id: 'total-demand',
       title: 'Total Demand',
-      value: formatLiters(stats?.totalDemand || 12000),
-      subtitle: `Across ${stats?.activeRequestsCount || 3} active requests`,
+      value: formatLiters(totalDemandVal),
+      subtitle: `Across ${activeRequestsCountVal} active requests`,
       linkText: 'View all →',
       actionKey: 'demands',
       icon: Droplet,
@@ -26,8 +34,8 @@ export default function MetricsCards({ stats, onActionClick }) {
     {
       id: 'matched-quantity',
       title: 'Matched Quantity',
-      value: formatLiters(stats?.matchedQuantity || 7500),
-      subtitle: `${stats?.matchedPercent || 62}% of total demand`,
+      value: formatLiters(matchedQuantityVal),
+      subtitle: `${matchedPercentVal}% of total demand`,
       linkText: 'View matches →',
       actionKey: 'matches',
       icon: Check,
@@ -41,8 +49,8 @@ export default function MetricsCards({ stats, onActionClick }) {
     {
       id: 'freshwater-saved',
       title: 'Freshwater Saved (Est.)',
-      value: formatLiters(stats?.freshwaterSaved || 7500),
-      subtitle: `= ${(stats?.freshwaterSavedEq || 15000).toLocaleString()} L of freshwater equivalent`,
+      value: formatLiters(freshwaterSavedVal),
+      subtitle: `= ${Number(freshwaterSavedEqVal).toLocaleString()} L of freshwater equivalent`,
       linkText: 'View report →',
       actionKey: 'reports',
       icon: Leaf,
@@ -57,8 +65,8 @@ export default function MetricsCards({ stats, onActionClick }) {
     {
       id: 'unmet-demand',
       title: 'Unmet Demand',
-      value: formatLiters(stats?.unmetDemand || 4500),
-      subtitle: 'Still requiring a source',
+      value: formatLiters(unmetDemandVal),
+      subtitle: unmetDemandVal > 0 ? 'Requiring verified source' : 'All demands satisfied',
       linkText: 'Find more →',
       actionKey: 'find-water',
       icon: AlertTriangle,

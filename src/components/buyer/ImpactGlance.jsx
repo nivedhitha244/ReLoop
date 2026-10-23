@@ -2,10 +2,10 @@ import React from 'react';
 import { Leaf, Droplet, Trees } from 'lucide-react';
 
 export default function ImpactGlance({ stats }) {
-  const waterReused = (stats?.freshwaterSaved || 7500).toLocaleString() + ' L';
-  const freshwaterAvoided = (stats?.freshwaterSavedEq || 15000).toLocaleString() + ' L';
-  const transportCost = '₹ ' + (stats?.transportCost || 3750).toLocaleString();
-  const sourcesUsed = stats?.sourcesUsed || 2;
+  const waterReused = ((stats?.freshwaterSaved ?? 0)).toLocaleString() + ' L';
+  const freshwaterAvoided = ((stats?.freshwaterSavedEq ?? 0)).toLocaleString() + ' L';
+  const transportCost = '₹ ' + ((stats?.transportCost ?? 0)).toLocaleString();
+  const sourcesUsed = stats?.sourcesUsed ?? 0;
 
   return (
     <div className="impact-glance-card">

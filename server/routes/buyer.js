@@ -166,10 +166,10 @@ router.get('/buyer/demands/:id/matches', handleDemandMatches);
  */
 async function handleCreateRequest(req, res) {
   try {
-    const { sourceId, demandId, quantity, requestedQuantity, notes, requestedDate, timeWindow } = req.body;
+    const { sourceId, demandId, quantity, requestedQuantity, notes, requestedDate, timeWindow, demandTitle, purpose, deliveryLocation } = req.body;
     
-    if (!sourceId || !demandId) {
-      return res.status(400).json({ error: "Both sourceId and demandId are required." });
+    if (!sourceId) {
+      return res.status(400).json({ error: "sourceId is required." });
     }
 
     const request = await createWaterRequest({
@@ -178,7 +178,10 @@ async function handleCreateRequest(req, res) {
       requestedQuantity: Number(quantity || requestedQuantity),
       notes,
       requestedDate,
-      timeWindow
+      timeWindow,
+      demandTitle,
+      purpose,
+      deliveryLocation
     });
 
     res.status(201).json({
@@ -243,6 +246,154 @@ router.post('/matches/:id/confirm', async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+/**
+ * POST /api/buyer/matches/:id/confirm-agreement
+ * Buyer accepts / confirms the match agreement (transitions to Confirmed)
+ */
+const handleConfirmMatchAgreement = async (req, res) => {
+  try {
+    const identifier = req.params.id;
+    const db = loadDB();
+
+    // Check if identifier is matchId or requestId
+    let match = (db.matches || []).find(m => m.id === identifier);
+    if (!match) {
+      match = (db.matches || []).find(m => m.requestId === identifier);
+    }
+
+    if (!match) {
+      // Check if identifier is a request that can be promoted to a confirmed match
+      const reqObj = (db.requests || []).find(r => r.id === identifier);
+      if (reqObj) {
+        const source = (db.sources || []).find(s => s.id === reqObj.sourceId) || {};
+        match = {
+          id: `mat-${Date.now()}`,
+          requestId: reqObj.id,
+          demandId: reqObj.demandId,
+          sourceId: reqObj.sourceId,
+          sourceName: reqObj.sourceName || source.name || 'Water Source',
+          buyerName: reqObj.buyerName || 'Buyer',
+          matchedQuantity: reqObj.requestedQuantity || 4000,
+          quantity: reqObj.requestedQuantity || 4000,
+          intendedReuse: reqObj.intendedReuse || 'Reuse',
+          distanceKm: reqObj.estimatedDistance || 4.5,
+          distance: reqObj.estimatedDistance || 4.5,
+          destinationLocation: reqObj.deliveryLocation,
+          status: 'Confirmed',
+          buyerConfirmed: true,
+          deliveryRef: `DLV-${Date.now().toString().slice(-6)}`,
+          driverName: "Senthil Kumar (TN-09-CV-8841)",
+          driverPhone: "+91 97890 44556",
+          tankerCapacity: `${reqObj.requestedQuantity || 4000} L`,
+          matchDate: new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        db.matches.unshift(match);
+        db.sellerMatches = db.sellerMatches || [];
+        db.sellerMatches.unshift(match);
+        reqObj.status = 'Confirmed';
+        reqObj.matchId = match.id;
+        saveDB(db);
+        return res.json({
+          success: true,
+          message: "Match Confirmed! Tanker dispatch is ready and waybill active.",
+          match
+        });
+      }
+      return res.status(404).json({ error: `Match for identifier ${identifier} not found.` });
+    }
+
+    const updated = await updateMatchStatus(match.id, 'Confirmed', {
+      buyerConfirmed: true,
+      instructions: "Match agreement accepted & confirmed by buyer. Tanker dispatch ready."
+    });
+
+    res.json({
+      success: true,
+      message: "Match Confirmed! Tanker dispatch is ready and waybill active.",
+      match: updated
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+router.post('/matches/:id/confirm-agreement', handleConfirmMatchAgreement);
+router.post('/buyer/matches/:id/confirm-agreement', handleConfirmMatchAgreement);
+
+const handlePatchMatchStatus = async (req, res) => {
+  try {
+    const identifier = req.params.id;
+    const { status, instructions, driverName, driverPhone } = req.body;
+    const db = loadDB();
+    let match = (db.matches || []).find(m => m.id === identifier);
+    if (!match) match = (db.matches || []).find(m => m.requestId === identifier);
+
+    if (!match) {
+      // Check if identifier is a request in db.requests or db.sellerRequests
+      const reqObj = (db.requests || []).find(r => r.id === identifier) || (db.sellerRequests || []).find(r => r.id === identifier);
+      if (reqObj) {
+        if (reqObj.matchId) {
+          match = (db.matches || []).find(m => m.id === reqObj.matchId);
+        }
+        if (!match) {
+          const source = (db.sources || []).find(s => s.id === reqObj.sourceId) || {};
+          match = {
+            id: `mat-${Date.now()}`,
+            requestId: reqObj.id,
+            demandId: reqObj.demandId,
+            sourceId: reqObj.sourceId,
+            sourceName: reqObj.sourceName || source.name || 'Water Source',
+            buyerName: reqObj.buyerName || 'Buyer',
+            matchedQuantity: reqObj.requestedQuantity || 4000,
+            quantity: reqObj.requestedQuantity || 4000,
+            intendedReuse: reqObj.intendedReuse || 'Reuse',
+            distanceKm: reqObj.estimatedDistance || 4.5,
+            distance: reqObj.estimatedDistance || 4.5,
+            destinationLocation: reqObj.deliveryLocation,
+            status: status || 'In Transit',
+            buyerConfirmed: true,
+            deliveryRef: `DLV-${Date.now().toString().slice(-6)}`,
+            driverName: driverName || "Senthil Kumar (TN-09-CV-8841)",
+            driverPhone: driverPhone || "+91 97890 44556",
+            instructions: instructions || "Tanker dispatched.",
+            tankerCapacity: `${reqObj.requestedQuantity || 4000} L`,
+            matchDate: new Date().toISOString().split('T')[0],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          db.matches.unshift(match);
+          db.sellerMatches = db.sellerMatches || [];
+          db.sellerMatches.unshift(match);
+          reqObj.status = status === 'In Transit' ? 'In Transit' : 'Confirmed';
+          reqObj.matchId = match.id;
+          saveDB(db);
+          return res.json({ success: true, message: `Match status updated to ${status || 'In Transit'}.`, match });
+        }
+      }
+    }
+
+    if (!match) {
+      return res.status(404).json({ error: `Match #${identifier} not found.` });
+    }
+
+    const updated = await updateMatchStatus(match.id, status || 'Confirmed', {
+      instructions,
+      driverName,
+      driverPhone,
+      buyerConfirmed: status === 'Confirmed' ? true : undefined
+    });
+
+    res.json({ success: true, message: `Match status updated to ${status || 'Confirmed'}.`, match: updated });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+router.patch('/matches/:id/status', handlePatchMatchStatus);
+router.patch('/buyer/matches/:id/status', handlePatchMatchStatus);
 
 // -----------------------------------------------------------------
 // 6. RELOOP RESCUE™ RECOVERY WORKFLOW

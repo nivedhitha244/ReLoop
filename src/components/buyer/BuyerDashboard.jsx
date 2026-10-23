@@ -16,7 +16,7 @@ import {
   ImpactReportsTab 
 } from './BuyerTabs';
 import { api } from '../../services/buyerApi';
-import { CheckCircle2, Info, Droplet, ShieldAlert, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Info, Droplet, ShieldAlert, RefreshCw, AlertCircle, X } from 'lucide-react';
 import ReLoopChatbot from '../common/ReLoopChatbot';
 import PaymentCheckoutModal from '../payment/PaymentCheckoutModal';
 import OrderHistorySidebar from '../payment/OrderHistorySidebar';
@@ -96,6 +96,33 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
 
   useEffect(() => {
     loadData();
+
+    // Live sync: background polling every 3 seconds for near real-time updates without manual refresh
+    const pollInterval = setInterval(() => {
+      loadData();
+    }, 3000);
+
+    // Live sync: instant reload on window focus, tab visibility change, or cross-tab mutation
+    const handleSync = () => loadData();
+    const handleStorage = (e) => {
+      if (e.key === 'reloop_last_mutation') loadData();
+    };
+
+    window.addEventListener('focus', handleSync);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadData();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('reloop:data_updated', handleSync);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('reloop:data_updated', handleSync);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // Filter sources based on search bar query
@@ -151,11 +178,44 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
 
   const handleConfirmReceipt = async (matchId) => {
     try {
+      setMatches(prev => prev.map(m => (m.id === matchId || m.requestId === matchId) ? { ...m, status: 'Completed' } : m));
       await api.confirmDelivery(matchId);
       await loadData();
       showToast("Delivery receipt confirmed! Freshwater savings ledger updated.", 'success');
     } catch (err) {
       showToast(`Failed to confirm delivery: ${err.message}`, 'info');
+      await loadData();
+    }
+  };
+
+  const handleConfirmMatchAgreement = async (identifier) => {
+    try {
+      // Optimistic update for immediate visual feedback on both matches and requests
+      setMatches(prev => prev.map(m => (m.id === identifier || m.requestId === identifier) ? { ...m, status: 'Confirmed', buyerConfirmed: true } : m));
+      setRequests(prev => prev.map(r => (r.id === identifier || r.matchId === identifier) ? { ...r, status: 'Confirmed' } : r));
+      await api.confirmMatchAgreement(identifier);
+      await loadData();
+      showToast("Match Confirmed! Tanker dispatch is ready and waybill active.", 'success');
+    } catch (err) {
+      showToast(`Confirmation update: ${err.message}`, 'info');
+      await loadData();
+    }
+  };
+
+  const handleDispatchTanker = async (identifier) => {
+    try {
+      // Optimistic update to immediately show step 3 In Transit
+      setMatches(prev => prev.map(m => (m.id === identifier || m.requestId === identifier) ? { ...m, status: 'In Transit' } : m));
+      await api.patchMatchStatus(identifier, 'In Transit', {
+        driverName: "Senthil Kumar (TN-09-CV-8841)",
+        driverPhone: "+91 97890 44556",
+        instructions: "Tanker dispatched from loading dock. GPS route tracking active."
+      });
+      await loadData();
+      showToast("Tanker #DLV-702786 dispatched! Real-time GPS transit active.", 'success');
+    } catch (err) {
+      showToast(`Dispatch update: ${err.message}`, 'info');
+      await loadData();
     }
   };
 
@@ -165,11 +225,28 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
     setIsCheckoutModalOpen(true);
   };
 
-  const handlePaymentSuccess = (newOrder) => {
+  const handlePaymentSuccess = async (newOrder) => {
     const updated = orderService.getOrders();
     setOrders(updated);
     showToast(`Payment of ₹${newOrder.costBreakdown.total.toFixed(2)} confirmed! Order #${newOrder.id} dispatched.`, 'success');
     setIsOrderSidebarOpen(true);
+    // If payment was for a confirmed match, trigger tanker dispatch immediately
+    if (checkoutData?.matchId) {
+      await handleDispatchTanker(checkoutData.matchId);
+    }
+  };
+
+  const handlePayAndDispatch = (match) => {
+    const payload = {
+      matchId: match.id || match._id,
+      source: { name: match.sourceName, type: match.waterCategory || match.type || 'Recycled Water' },
+      supplierName: match.sourceName || match.supplierName,
+      waterType: match.waterCategory || match.type || 'Treated Wastewater',
+      volume: Number(match.matchedQuantity || match.quantity || 4000),
+      destination: match.destinationName || match.buyerName || 'Facility Destination',
+      needQualityCheck: true
+    };
+    handleOpenCheckout(payload);
   };
 
   const handleInitiateCancel = (order) => {
@@ -184,22 +261,43 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
     showToast(`Order #${orderId} cancelled. Refund of ₹${refund} initiated to your account.`, 'info');
   };
 
-  const handleConfirmMatch = async (sourceId, demandId, qty, needQualityCheck) => {
-    const demand = demands.find(d => d.id === demandId);
-    await api.requestMatch(sourceId, demandId, qty);
-    await loadData();
-    
-    // Open Payment Operations Module directly with selected source and demand details
-    const payload = {
-      source: selectedSourceForRequest,
-      supplierName: selectedSourceForRequest?.name,
-      waterType: selectedSourceForRequest?.type,
-      volume: Number(qty) || selectedSourceForRequest?.quantity || 4000,
-      destination: demand?.location || demand?.title || 'Green Park Facility Tank #1',
-      needQualityCheck: Boolean(needQualityCheck)
-    };
-    setSelectedSourceForRequest(null);
-    handleOpenCheckout(payload);
+  const handleConfirmMatch = async (sourceId, demandId, qty, needQualityCheck, customDemandData = null) => {
+    try {
+      let demand = demands.find(d => d.id === demandId);
+
+      // If creating new demand or demandId not found, create demand first so it appears under My Demands
+      if (!demand && customDemandData) {
+        demand = await api.createDemand({
+          title: customDemandData.demandTitle || `Demand for ${selectedSourceForRequest?.name || 'Water'}`,
+          quantity: Number(qty) || 4000,
+          purpose: customDemandData.purpose || 'Irrigation',
+          location: customDemandData.deliveryLocation || 'Chennai, Tamil Nadu',
+          needQualityCheck: Boolean(needQualityCheck)
+        });
+        demandId = demand.id;
+      }
+
+      await api.requestMatch(
+        sourceId, 
+        demandId || (demand ? demand.id : ''), 
+        qty, 
+        `Allocation request for ${demand?.title || customDemandData?.demandTitle || 'Water'}`,
+        {
+          demandTitle: demand?.title || customDemandData?.demandTitle,
+          purpose: demand?.purpose || customDemandData?.purpose,
+          deliveryLocation: demand?.location || demand?.deliveryLocation || customDemandData?.deliveryLocation
+        }
+      );
+
+      await loadData();
+
+      const supplierName = selectedSourceForRequest?.name || 'Supplier';
+      setSelectedSourceForRequest(null);
+      setActiveTab('my-matches');
+      showToast(`Water request sent to ${supplierName}! Awaiting supplier acceptance. Once accepted, you can proceed to payment & tanker dispatch.`, 'success');
+    } catch (err) {
+      showToast(`Request error: ${err.message}`, 'info');
+    }
   };
 
   const handleExecuteRescue = async (demandId, failedSourceId, reason) => {
@@ -213,15 +311,29 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
 
   return (
     <div className="reloop-app-layout">
-      {/* Toast Alert */}
+      {/* Enhanced Floating Glassmorphic Toast Notification */}
       {toast && (
         <div className={`reloop-toast toast-${toast.type}`}>
-          {toast.type === 'success' ? (
-            <CheckCircle2 size={18} className="toast-icon text-emerald-500" />
-          ) : (
-            <Info size={18} className="toast-icon text-blue-500" />
-          )}
-          <span>{toast.message}</span>
+          <div className="toast-icon-wrap">
+            {toast.type === 'success' ? (
+              <CheckCircle2 size={18} className="text-emerald-400" />
+            ) : toast.type === 'error' ? (
+              <AlertCircle size={18} className="text-rose-400" />
+            ) : (
+              <Info size={18} className="text-sky-400" />
+            )}
+          </div>
+          <div className="toast-content">
+            <span className="toast-message">{toast.message}</span>
+          </div>
+          <button 
+            type="button" 
+            className="toast-close-btn" 
+            onClick={() => setToast(null)}
+            aria-label="Dismiss notification"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
 
@@ -361,6 +473,7 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
             <FindWaterTab 
               sources={sources} 
               demands={demands} 
+              requests={requests}
               onRequestClick={handleRequestClick} 
             />
           )}
@@ -380,6 +493,9 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
               matches={matches}
               requests={requests}
               onConfirmReceipt={handleConfirmReceipt}
+              onConfirmMatch={handleConfirmMatchAgreement}
+              onDispatchTanker={handleDispatchTanker}
+              onPayAndDispatch={handlePayAndDispatch}
               onOpenRescue={(dId, sId, rsn) => {
                 handleExecuteRescue(dId, sId, rsn);
                 setIsRescueModalOpen(true);
@@ -419,6 +535,7 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
         isOpen={Boolean(selectedSourceForRequest)}
         source={selectedSourceForRequest}
         demands={demands}
+        requests={requests}
         onClose={() => setSelectedSourceForRequest(null)}
         onConfirm={handleConfirmMatch}
       />

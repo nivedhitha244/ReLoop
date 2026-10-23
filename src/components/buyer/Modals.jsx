@@ -18,6 +18,16 @@ export function CreateDemandModal({ isOpen, onClose, onSubmit }) {
   const [location, setLocation] = useState('Chennai, Tamil Nadu');
   const [needQualityCheck, setNeedQualityCheck] = useState(true);
 
+  // Support ESC key to close modal
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
@@ -35,9 +45,40 @@ export function CreateDemandModal({ isOpen, onClose, onSubmit }) {
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-container">
-        <div className="modal-header">
+    <div 
+      className="modal-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        overflow: 'hidden'
+      }}
+    >
+      <div 
+        className="modal-container" 
+        onClick={(e) => e.stopPropagation()}
+        style={{ 
+          maxWidth: '480px', 
+          width: '100%',
+          maxHeight: 'min(520px, 86vh)', 
+          display: 'flex', 
+          flexDirection: 'column',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+          margin: 'auto',
+          border: '1px solid rgba(226, 232, 240, 0.9)'
+        }}
+      >
+        <div className="modal-header" style={{ flexShrink: 0 }}>
           <div className="modal-title-wrap">
             <div className="modal-icon-badge bg-blue-100 text-blue-600">
               <FileText size={20} />
@@ -52,86 +93,88 @@ export function CreateDemandModal({ isOpen, onClose, onSubmit }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-form">
-          <div className="form-group">
-            <label className="form-label">Facility / Destination Name</label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="e.g. Green Park Sector 4, Sports Arena" 
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-row-2">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <div className="modal-body" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             <div className="form-group">
-              <label className="form-label">Quantity Needed (Litres)</label>
+              <label className="form-label">Facility / Destination Name</label>
               <input 
-                type="number" 
-                step="500" 
-                min="500" 
+                type="text" 
                 className="form-input" 
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="e.g. Green Park Sector 4, Sports Arena" 
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 required
               />
             </div>
 
+            <div className="form-row-2">
+              <div className="form-group">
+                <label className="form-label">Quantity Needed (Litres)</label>
+                <input 
+                  type="number" 
+                  step="500" 
+                  min="500" 
+                  className="form-input" 
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Reuse Purpose</label>
+                <select 
+                  className="form-select"
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                >
+                  <option value="Irrigation">Irrigation / Landscaping</option>
+                  <option value="Construction">Construction & Dust Control</option>
+                  <option value="Industrial">Industrial Cooling Tower</option>
+                  <option value="Flushing">Toilet Flushing & Utilities</option>
+                </select>
+              </div>
+            </div>
+
             <div className="form-group">
-              <label className="form-label">Reuse Purpose</label>
-              <select 
-                className="form-select"
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-              >
-                <option value="Irrigation">Irrigation / Landscaping</option>
-                <option value="Construction">Construction & Dust Control</option>
-                <option value="Industrial">Industrial Cooling Tower</option>
-                <option value="Flushing">Toilet Flushing & Utilities</option>
-              </select>
+              <label className="form-label">Delivery Location</label>
+              <div className="input-with-icon">
+                <MapPin size={16} className="input-icon" />
+                <input 
+                  type="text" 
+                  className="form-input with-icon" 
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Quality Check Option */}
+            <div className="qc-question-section" style={{ marginTop: '12px' }}>
+              <label className="form-label" style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldCheck size={16} className="text-emerald-600" />
+                Do you need a Quality Check for this demand?
+              </label>
+              <div className="quality-check-toggle-row">
+                <button
+                  type="button"
+                  className={`btn-toggle-qc ${needQualityCheck ? 'active' : ''}`}
+                  onClick={() => setNeedQualityCheck(true)}
+                >
+                  ✓ Yes, Require Quality Check
+                </button>
+                <button
+                  type="button"
+                  className={`btn-toggle-qc ${!needQualityCheck ? 'active' : ''}`}
+                  onClick={() => setNeedQualityCheck(false)}
+                >
+                  ✕ No, Direct Supply
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Delivery Location</label>
-            <div className="input-with-icon">
-              <MapPin size={16} className="input-icon" />
-              <input 
-                type="text" 
-                className="form-input with-icon" 
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Quality Check Option */}
-          <div className="qc-question-section" style={{ marginTop: '12px' }}>
-            <label className="form-label" style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ShieldCheck size={16} className="text-emerald-600" />
-              Do you need a Quality Check for this demand?
-            </label>
-            <div className="quality-check-toggle-row">
-              <button
-                type="button"
-                className={`btn-toggle-qc ${needQualityCheck ? 'active' : ''}`}
-                onClick={() => setNeedQualityCheck(true)}
-              >
-                ✓ Yes, Require Quality Check
-              </button>
-              <button
-                type="button"
-                className={`btn-toggle-qc ${!needQualityCheck ? 'active' : ''}`}
-                onClick={() => setNeedQualityCheck(false)}
-              >
-                ✕ No, Direct Supply
-              </button>
-            </div>
-          </div>
-
-          <div className="modal-actions" style={{ marginTop: '20px' }}>
+          <div className="modal-actions" style={{ flexShrink: 0 }}>
             <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary">Submit Demand Request</button>
           </div>
@@ -141,139 +184,460 @@ export function CreateDemandModal({ isOpen, onClose, onSubmit }) {
   );
 }
 
-export function RequestModal({ isOpen, onClose, source, demands, onConfirm }) {
-  const [selectedDemandId, setSelectedDemandId] = useState(demands[0]?.id || '');
+export function RequestModal({ isOpen, onClose, source, demands = [], requests = [], onConfirm }) {
+  const getRemaining = (d) => {
+    if (!d) return 0;
+    if (d.remainingQuantity !== undefined) return Math.max(0, Number(d.remainingQuantity));
+    const req = Number(d.requiredQuantity || d.quantity || 0);
+    const alloc = Number(d.allocatedQuantity || 0);
+    const ful = Number(d.fulfilledQuantity || 0);
+    return Math.max(0, req - alloc - ful);
+  };
+
+  const activeDemands = (demands || []).filter(d => getRemaining(d) > 0 && d.status !== 'Fulfilled' && d.status !== 'Matched');
+  const fulfilledDemands = (demands || []).filter(d => getRemaining(d) <= 0 || d.status === 'Fulfilled' || d.status === 'Matched');
+
+  // Default to first active unfulfilled demand, or NEW if all are completed
+  const defaultDemandId = activeDemands.length > 0 ? activeDemands[0].id : 'NEW';
+
+  const [selectedDemandId, setSelectedDemandId] = useState(defaultDemandId);
   const [requestedLiters, setRequestedLiters] = useState(source?.quantity || 4000);
   const [needQualityCheck, setNeedQualityCheck] = useState(true);
+  
+  // Custom demand details if creating new or no existing demands
+  const [demandTitle, setDemandTitle] = useState('Green Park Facility');
+  const [purpose, setPurpose] = useState('Irrigation');
+  const [deliveryLocation, setDeliveryLocation] = useState('Chennai, Tamil Nadu');
+
+  // Reset or initialize when source changes or modal opens
+  React.useEffect(() => {
+    if (source && isOpen) {
+      if (activeDemands.length > 0) {
+        const topDemand = activeDemands[0];
+        setSelectedDemandId(topDemand.id);
+        const rem = getRemaining(topDemand);
+        setRequestedLiters(Math.min(rem || 4000, Number(source.quantity || 4000)));
+      } else {
+        setSelectedDemandId('NEW');
+        setRequestedLiters(Math.min(4000, Number(source.quantity || 4000)));
+      }
+    }
+  }, [source, isOpen]);
+
+  // Support ESC key to close modal
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !source) return null;
 
+  const isCreatingNew = selectedDemandId === 'NEW';
+  const currentDemand = (demands || []).find(d => d.id === selectedDemandId);
+  const currentRemaining = currentDemand ? getRemaining(currentDemand) : 0;
+  const isSelectedDemandFulfilled = currentDemand && currentRemaining <= 0;
+
+  const existingActiveRequests = (requests || []).filter(r => 
+    r.sourceId === source?.id && 
+    (r.demandId === selectedDemandId) && 
+    (r.status === 'Pending' || r.status === 'Accepted' || r.status === 'Scheduled')
+  );
+  const hasPriorRequest = !isCreatingNew && existingActiveRequests.length > 0;
+
+  const handleDemandChange = (e) => {
+    const newId = e.target.value;
+    setSelectedDemandId(newId);
+    if (newId === 'NEW') {
+      setRequestedLiters(Math.min(4000, Number(source.quantity || 4000)));
+    } else {
+      const d = (demands || []).find(item => item.id === newId);
+      if (d) {
+        const rem = getRemaining(d);
+        if (rem > 0) {
+          setRequestedLiters(Math.min(rem, Number(source.quantity || 4000)));
+        } else {
+          setRequestedLiters(Math.min(4000, Number(source.quantity || 4000)));
+        }
+      }
+    }
+  };
+
   const handleConfirm = () => {
-    onConfirm(source.id, selectedDemandId, requestedLiters, needQualityCheck);
+    onConfirm(
+      source.id, 
+      isCreatingNew ? '' : selectedDemandId, 
+      Number(requestedLiters), 
+      needQualityCheck,
+      isCreatingNew ? { demandTitle: demandTitle.trim() || `Demand for ${source.name}`, purpose, deliveryLocation } : null
+    );
     onClose();
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-container request-allocation-modal">
-        <div className="modal-header">
-          <div className="modal-title-wrap">
-            <div className="modal-icon-badge bg-emerald-100 text-emerald-600">
-              <Droplet size={20} />
+    <div 
+      className="modal-backdrop" 
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ 
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 1100,
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        padding: '16px',
+        overflow: 'hidden'
+      }}
+    >
+      <div 
+        className="modal-container request-allocation-modal" 
+        onClick={(e) => e.stopPropagation()}
+        style={{ 
+          maxWidth: '500px', 
+          width: '100%',
+          maxHeight: 'min(540px, 88vh)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          borderRadius: '16px',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+          margin: 'auto',
+          border: '1px solid rgba(226, 232, 240, 0.9)'
+        }}
+      >
+        {/* Pinned Header */}
+        <div 
+          className="modal-header" 
+          style={{ 
+            flexShrink: 0, 
+            padding: '12px 18px', 
+            borderBottom: '1px solid #eef3f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: '#ffffff'
+          }}
+        >
+          <div className="modal-title-wrap" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="modal-icon-badge" style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Droplet size={18} />
             </div>
             <div>
-              <h3 className="modal-title">Request Water Allocation</h3>
-              <p className="modal-subtitle">Connect with {source.name} for treated water delivery</p>
+              <h3 className="modal-title" style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#0f172a' }}>
+                Request Water Supply
+              </h3>
+              <p className="modal-subtitle" style={{ fontSize: '11.5px', color: '#64748b', margin: 0 }}>
+                Direct allocation request to {source.name}
+              </p>
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            <X size={18} />
+          <button 
+            type="button"
+            className="modal-close-btn" 
+            onClick={onClose} 
+            title="Close modal (Esc)"
+            style={{ 
+              background: '#f1f5f9', 
+              border: 'none', 
+              cursor: 'pointer', 
+              padding: '6px', 
+              borderRadius: '6px',
+              color: '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <X size={16} />
           </button>
         </div>
 
-        <div className="modal-body">
-          <div className="source-summary-box">
-            <div className="summary-row">
-              <span className="summary-label">Selected Supplier:</span>
-              <strong className="summary-val">{source.name}</strong>
+        {/* Scrollable Compact Body */}
+        <div 
+          className="modal-body" 
+          style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            minHeight: 0, 
+            padding: '14px 18px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '10px' 
+          }}
+        >
+          {/* Streamlined Supplier Info Chip Bar */}
+          <div 
+            style={{ 
+              background: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '8px', 
+              padding: '8px 12px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              flexWrap: 'wrap',
+              gap: '6px',
+              fontSize: '12px' 
+            }}
+          >
+            <div>
+              <span style={{ color: '#64748b' }}>Supplier: </span>
+              <strong style={{ color: '#0f172a' }}>{source.name}</strong>
             </div>
-            <div className="summary-row">
-              <span className="summary-label">Water Category:</span>
-              <span className="summary-val">{source.type}</span>
+            <div>
+              <span style={{ color: '#64748b' }}>Capacity: </span>
+              <strong style={{ color: '#059669' }}>{(source.quantity || 0).toLocaleString()} L</strong>
             </div>
-            <div className="summary-row">
-              <span className="summary-label">Available Capacity:</span>
-              <span className="summary-val">{source.quantity.toLocaleString()} L</span>
-            </div>
-            <div className="summary-row">
-              <span className="summary-label">Distance:</span>
-              <span className="summary-val">{source.distance} km</span>
-            </div>
-            <div className="summary-row">
-              <span className="summary-label">Quality Status:</span>
-              <span className={`quality-badge badge-${source.quality.toLowerCase()}`}>
-                {source.quality}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: '#64748b' }}>Dist: </span>
+              <strong style={{ color: '#0f172a' }}>{source.distance || 3.5} km</strong>
+              <span className={`quality-badge badge-${(source.quality || 'Verified').toLowerCase()}`} style={{ padding: '1px 6px', fontSize: '10.5px' }}>
+                {source.quality || 'Verified'}
               </span>
             </div>
           </div>
 
-          <div className="form-group" style={{ marginTop: '16px' }}>
-            <label className="form-label">Allocate To My Demand Request</label>
+          {/* Demand Target Selection */}
+          <div>
+            <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, marginBottom: '4px', display: 'block' }}>
+              Target Demand / Destination
+            </label>
             <select 
               className="form-select"
               value={selectedDemandId}
-              onChange={(e) => setSelectedDemandId(e.target.value)}
+              onChange={handleDemandChange}
+              style={{ fontSize: '12.5px', padding: '7px 10px', width: '100%', borderRadius: '6px', border: '1px solid #cbd5e1' }}
             >
-              {demands.map(d => (
-                <option key={d.id} value={d.id}>
-                  {d.title} — {d.quantity.toLocaleString()} L ({d.purpose})
-                </option>
-              ))}
+              <option value="NEW">+ Create New Demand for this Water Request</option>
+              {activeDemands.length > 0 && (
+                <optgroup label="Active Projects (Unmet Need)">
+                  {activeDemands.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.title} — {getRemaining(d).toLocaleString()} L needed ({d.purpose})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {fulfilledDemands.length > 0 && (
+                <optgroup label="Completed Projects">
+                  {fulfilledDemands.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.title} — Completed (Auto-creates Batch 2)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Requested Volume (Litres)</label>
+          {/* Context Banner */}
+          {isCreatingNew ? (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '6px 10px', borderRadius: '6px', fontSize: '11.5px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>💡</span>
+              <span><strong>New Demand:</strong> Fill in destination details below. This will register a new demand and request water directly.</span>
+            </div>
+          ) : hasPriorRequest ? (
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '6px 10px', borderRadius: '6px', fontSize: '11.5px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>ℹ️</span>
+              <span><strong>Additional Allocation:</strong> An active request exists for this demand ({existingActiveRequests.length} pending). Submitting will request an <strong>additional tanker allocation (Tanker #{existingActiveRequests.length + 1})</strong>.</span>
+            </div>
+          ) : isSelectedDemandFulfilled ? (
+            <div style={{ background: '#fefce8', border: '1px solid #fef08a', padding: '6px 10px', borderRadius: '6px', fontSize: '11.5px', color: '#854d0e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🔄</span>
+              <span><strong>Continuation Batch:</strong> Previous allocation was fulfilled. Submitting will auto-create <strong>{currentDemand?.title} (Batch 2)</strong>.</span>
+            </div>
+          ) : (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '6px 10px', borderRadius: '6px', fontSize: '11.5px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>✓</span>
+              <span><strong>Active Project:</strong> Allocating toward <strong>{currentDemand?.title}</strong> ({currentRemaining.toLocaleString()} L unmet requirement).</span>
+            </div>
+          )}
+
+          {/* Quick Destination Details (Row-based to save space) */}
+          {isCreatingNew && (
+            <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px' }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: 600, marginBottom: '2px', display: 'block' }}>Facility / Destination</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g. Green Park Sector 4" 
+                    value={demandTitle}
+                    onChange={(e) => setDemandTitle(e.target.value)}
+                    style={{ fontSize: '12px', padding: '6px 8px', width: '100%', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: 600, marginBottom: '2px', display: 'block' }}>Reuse Purpose</label>
+                  <select 
+                    className="form-select"
+                    value={purpose}
+                    onChange={(e) => setPurpose(e.target.value)}
+                    style={{ fontSize: '12px', padding: '6px 8px', width: '100%', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  >
+                    <option value="Irrigation">Irrigation / Landscaping</option>
+                    <option value="Construction">Construction & Dust</option>
+                    <option value="Industrial">Industrial Cooling</option>
+                    <option value="Flushing">Toilet Flushing</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '11px', fontWeight: 600, marginBottom: '2px', display: 'block' }}>Delivery Address / Location</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={deliveryLocation}
+                  onChange={(e) => setDeliveryLocation(e.target.value)}
+                  style={{ fontSize: '12px', padding: '6px 8px', width: '100%', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Requested Volume */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+              <label className="form-label" style={{ fontSize: '11.5px', fontWeight: 700, margin: 0 }}>
+                Requested Volume (Litres)
+              </label>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>
+                Max Available: <strong>{(source.quantity || 0).toLocaleString()} L</strong>
+              </span>
+            </div>
             <input 
               type="number"
               max={source.quantity}
+              min="500"
+              step="500"
               className="form-input"
               value={requestedLiters}
               onChange={(e) => setRequestedLiters(e.target.value)}
+              style={{ fontSize: '12.5px', padding: '7px 10px', width: '100%', borderRadius: '6px', border: '1px solid #cbd5e1' }}
             />
           </div>
 
-          {/* Quality Check Decision Question */}
-          <div className="qc-question-section">
-            <div className="qc-question-header">
-              <ShieldCheck size={18} className="qc-question-icon" />
-              <div>
-                <h4 className="qc-question-title">Do you need a Quality Check before delivery?</h4>
-                <p className="qc-question-desc">Choose whether an accredited verifier should inspect and certify this batch.</p>
-              </div>
-            </div>
-
-            <div className="qc-choices-grid">
+          {/* Compact Quality Check Toggle Row */}
+          <div>
+            <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <ShieldCheck size={14} className="text-emerald-600" />
+              Quality Inspection Preference:
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <button
                 type="button"
-                className={`qc-choice-btn ${needQualityCheck === true ? 'selected-yes' : ''}`}
                 onClick={() => setNeedQualityCheck(true)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: needQualityCheck ? '2px solid #10b981' : '1px solid #cbd5e1',
+                  background: needQualityCheck ? '#ecfdf5' : '#ffffff',
+                  cursor: 'pointer'
+                }}
               >
-                <div className="qc-radio-bullet">{needQualityCheck === true ? '✓' : '○'}</div>
-                <div className="qc-choice-content">
-                  <div className="qc-choice-title">
-                    <span>Yes, I need Quality Check</span>
-                    <span className="qc-pill-badge">Recommended</span>
-                  </div>
-                  <p className="qc-choice-sub">
-                    Accredited Verifier tests TDS, pH, and BOD levels with digital CPCB certification before tanker dispatch.
-                  </p>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: needQualityCheck ? '#059669' : '#94a3b8' }}>
+                  {needQualityCheck ? '✓' : '○'}
+                </span>
+                <div>
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>Yes, Quality Check</div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>Accredited lab verification</div>
                 </div>
               </button>
 
               <button
                 type="button"
-                className={`qc-choice-btn ${needQualityCheck === false ? 'selected-no' : ''}`}
                 onClick={() => setNeedQualityCheck(false)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: !needQualityCheck ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                  background: !needQualityCheck ? '#f0f9ff' : '#ffffff',
+                  cursor: 'pointer'
+                }}
               >
-                <div className="qc-radio-bullet">{needQualityCheck === false ? '✓' : '○'}</div>
-                <div className="qc-choice-content">
-                  <div className="qc-choice-title">
-                    <span>No Quality Check needed</span>
-                  </div>
-                  <p className="qc-choice-sub">
-                    Direct dispatch based on supplier self-declared specs. Faster turnaround without lab test.
-                  </p>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: !needQualityCheck ? '#0284c7' : '#94a3b8' }}>
+                  {!needQualityCheck ? '✓' : '○'}
+                </span>
+                <div>
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>Direct Supply</div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>Fast turnaround without lab</div>
                 </div>
               </button>
             </div>
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" onClick={handleConfirm}>
-            Confirm Matching & Routing
+        {/* PERMANENTLY VISIBLE PINNED BOTTOM ACTIONS */}
+        <div 
+          className="modal-actions" 
+          style={{ 
+            flexShrink: 0, 
+            padding: '10px 18px', 
+            borderTop: '1px solid #e2e8f0', 
+            background: '#ffffff', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            gap: '10px' 
+          }}
+        >
+          <button 
+            type="button" 
+            className="btn-cancel" 
+            onClick={onClose}
+            style={{ 
+              padding: '8px 14px', 
+              borderRadius: '8px', 
+              fontSize: '12.5px',
+              border: '1px solid #cbd5e1',
+              background: '#f8fafc',
+              cursor: 'pointer',
+              color: '#475569'
+            }}
+          >
+            Cancel
+          </button>
+          <button 
+            type="button" 
+            className="btn-primary" 
+            onClick={handleConfirm}
+            style={{
+              padding: '9px 20px',
+              borderRadius: '8px',
+              fontWeight: 700,
+              fontSize: '13px',
+              background: hasPriorRequest 
+                ? 'linear-gradient(135deg, #0284c7, #38bdf8)' 
+                : 'linear-gradient(135deg, #059669, #10b981)',
+              color: '#ffffff',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: hasPriorRequest 
+                ? '0 2px 8px rgba(2, 132, 199, 0.35)' 
+                : '0 2px 8px rgba(16, 185, 129, 0.35)'
+            }}
+          >
+            <span>{hasPriorRequest ? `Confirm & Request Tanker #${existingActiveRequests.length + 1} →` : 'Confirm & Send Water Request →'}</span>
           </button>
         </div>
       </div>
@@ -284,6 +648,16 @@ export function RequestModal({ isOpen, onClose, source, demands, onConfirm }) {
 export function RescueModal({ isOpen, onClose, onExecuteRescue }) {
   const [status, setStatus] = useState('idle'); // idle | running | success
   const [rescueResult, setRescueResult] = useState(null);
+
+  // Support ESC key to close modal
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -297,8 +671,39 @@ export function RescueModal({ isOpen, onClose, onExecuteRescue }) {
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-container rescue-modal">
+    <div 
+      className="modal-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        overflow: 'hidden'
+      }}
+    >
+      <div 
+        className="modal-container rescue-modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: '540px',
+          width: '100%',
+          maxHeight: 'min(540px, 88vh)',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+          margin: 'auto',
+          border: '1px solid rgba(226, 232, 240, 0.9)'
+        }}
+      >
         <div className="modal-header">
           <div className="modal-title-wrap">
             <div className="modal-icon-badge bg-teal-800 text-teal-200">
@@ -426,10 +831,21 @@ export function DemandMatchesModal({ isOpen, onClose, demand, onSelectSourceForR
     return () => { isMounted = false; };
   }, [isOpen, demand]);
 
+  // Support ESC key to close modal - Hook must be before any conditional early returns
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !demand) return null;
 
   const eligible = (matchData?.eligibleMatches || []).filter(m => {
-    const matchesCat = selectedCategory === 'All' || m.waterCategory.toLowerCase().includes(selectedCategory.toLowerCase());
+    const category = (m.waterCategory || m.type || '').toLowerCase();
+    const matchesCat = selectedCategory === 'All' || category.includes(selectedCategory.toLowerCase());
     const matchesDist = (m.distanceKm || 0) <= maxDistance;
     return matchesCat && matchesDist;
   });
@@ -449,8 +865,39 @@ export function DemandMatchesModal({ isOpen, onClose, demand, onSelectSourceForR
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-container demand-matches-modal" style={{ maxWidth: '850px', maxHeight: '90vh', overflowY: 'auto' }}>
+    <div 
+      className="modal-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        overflow: 'hidden'
+      }}
+    >
+      <div 
+        className="modal-container demand-matches-modal" 
+        onClick={(e) => e.stopPropagation()}
+        style={{ 
+          maxWidth: '850px', 
+          width: '100%',
+          maxHeight: 'min(640px, 88vh)', 
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+          margin: 'auto',
+          border: '1px solid rgba(226, 232, 240, 0.9)'
+        }}
+      >
         <div className="modal-header">
           <div className="modal-title-wrap">
             <div className="modal-icon-badge bg-emerald-100 text-emerald-800">
@@ -497,19 +944,19 @@ export function DemandMatchesModal({ isOpen, onClose, demand, onSelectSourceForR
           </div>
 
           {/* Partial Fulfillment Multi-Source Banner if applicable */}
-          {matchData?.partialFulfillmentPlan && !matchData.partialFulfillmentPlan.hasSingleSourceFullFulfillment && matchData.partialFulfillmentPlan.allocations.length > 1 && (
+          {matchData?.partialFulfillmentPlan && !matchData.partialFulfillmentPlan.hasSingleSourceFullFulfillment && (matchData.partialFulfillmentPlan.allocations || []).length > 1 && (
             <div className="partial-fulfillment-banner" style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', padding: '12px 16px', marginBottom: '18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#065f46', fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
                 <CheckCircle2 size={16} />
                 <span>Multi-Supplier Partial Fulfillment Solution</span>
               </div>
               <p style={{ fontSize: '12px', color: '#047857', margin: 0 }}>
-                A single supplier cannot cover 100% of this demand volume. The matching engine identified a combination of {matchData.partialFulfillmentPlan.allocations.length} eligible suppliers capable of fulfilling {matchData.partialFulfillmentPlan.coveredQuantity.toLocaleString()} L:
+                A single supplier cannot cover 100% of this demand volume. The matching engine identified a combination of {(matchData.partialFulfillmentPlan.allocations || []).length} eligible suppliers capable of fulfilling {(matchData.partialFulfillmentPlan.coveredQuantity || 0).toLocaleString()} L:
               </p>
               <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
-                {matchData.partialFulfillmentPlan.allocations.map((a, idx) => (
-                  <span key={a.sourceId} style={{ background: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #6ee7b7', color: '#064e3b' }}>
-                    #{idx + 1} {a.sourceName}: <strong>{a.allocatedQuantity.toLocaleString()} L</strong> ({a.distanceKm} km away)
+                {(matchData.partialFulfillmentPlan.allocations || []).map((a, idx) => (
+                  <span key={a.sourceId || idx} style={{ background: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #6ee7b7', color: '#064e3b' }}>
+                    #{idx + 1} {a.sourceName}: <strong>{(a.allocatedQuantity || 0).toLocaleString()} L</strong> ({a.distanceKm} km away)
                   </span>
                 ))}
               </div>

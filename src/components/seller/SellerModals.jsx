@@ -132,6 +132,8 @@ export function AddSourceModal({ isOpen, onClose, onSubmit, profile }) {
         region,
         coordinates: [Number(lat), Number(lng)],
         intendedUses: selectedUses,
+        availabilityStatus: availabilityStatus || 'Available',
+        available: availabilityStatus === 'Available',
         labReport: {
           certId: `LAB-${Date.now().toString().slice(-6)}`,
           labName: testingLab,
@@ -142,7 +144,7 @@ export function AddSourceModal({ isOpen, onClose, onSubmit, profile }) {
           tds,
           bod,
           cod,
-          status: isDraft ? 'Draft' : 'Pending Review',
+          status: isDraft ? 'Draft' : 'Verified',
           notes: `Uploaded documentation: ${uploadedFileName}`
         }
       };

@@ -35,7 +35,7 @@ export default function ReLoopChatbot({ onNavigateTab }) {
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(true);
+  const [showTooltip, setShowTooltip] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 

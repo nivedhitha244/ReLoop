@@ -60,6 +60,8 @@ const DeliverySchema = new mongoose.Schema(
       enum: [
         'Requested',
         'Matched',
+        'Scheduled',
+        'Confirmed',
         'Quality Cleared',
         'Transporter Assigned',
         'In Transit',

@@ -14,7 +14,7 @@ import {
 import StatusBadge from '../common/StatusBadge';
 import SkeletonLoader from '../common/SkeletonLoader';
 
-export default function AdminAuditLogs({ onNavigate, globalSearch = '' }) {
+export default function AdminAuditLogs({ onNavigate, globalSearch = '', refreshTrigger }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [entityFilter, setEntityFilter] = useState('all');
@@ -22,9 +22,9 @@ export default function AdminAuditLogs({ onNavigate, globalSearch = '' }) {
 
   const effectiveSearch = globalSearch || localSearch;
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const res = await fetch(`/api/audit-logs?entity=${entityFilter}`);
       if (res.ok) {
         const json = await res.json();
@@ -38,8 +38,8 @@ export default function AdminAuditLogs({ onNavigate, globalSearch = '' }) {
   };
 
   useEffect(() => {
-    fetchLogs();
-  }, [entityFilter]);
+    fetchLogs(logs.length > 0);
+  }, [entityFilter, refreshTrigger]);
 
   const filteredLogs = logs.filter((l) => {
     if (effectiveSearch) {
