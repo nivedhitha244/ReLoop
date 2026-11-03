@@ -17,6 +17,8 @@ import WaterDashboard from "./components/WaterDashboard";
 import BuyerDashboard from "./components/buyer/BuyerDashboard";
 import AdminLayout from "./components/admin/AdminLayout";
 import SellerDashboard from "./components/seller/SellerDashboard";
+import TransporterDashboard from "./components/transporter/TransporterDashboard";
+import VerifierDashboard from "./components/verifier/VerifierDashboard";
 
 // Exact SVG Icons matching the reference design
 function DropletIcon() {
@@ -446,6 +448,20 @@ export default function App() {
     } else if (currentUser.role === "supplier" || currentUser.role === "seller") {
       dashboardComponent = (
         <SellerDashboard
+          currentUser={currentUser}
+          onLogout={handleLogout}
+        />
+      );
+    } else if (currentUser.role === "transporter") {
+      dashboardComponent = (
+        <TransporterDashboard
+          currentUser={currentUser}
+          onLogout={handleLogout}
+        />
+      );
+    } else if (currentUser.role === "verifier") {
+      dashboardComponent = (
+        <VerifierDashboard
           currentUser={currentUser}
           onLogout={handleLogout}
         />

@@ -7,6 +7,8 @@ import buyerRoutes from './routes/buyer.js';
 import sellerRoutes from './routes/seller.js';
 import chatbotRoutes from './routes/chatbot.js';
 import adminRoutes from './routes/adminRoutes.js';
+import transporterRoutes from './routes/transporter.js';
+import verifierRoutes from './routes/verifier.js';
 import { connectDB, isDbConnected } from './db.js';
 import { seedInitialData } from './seed.js';
 
@@ -32,6 +34,8 @@ app.use('/api', buyerRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/transporter', transporterRoutes);
+app.use('/api/verifier', verifierRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

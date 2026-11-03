@@ -46,6 +46,55 @@
   },
   "sources": [
     {
+      "id": "src-seller-1792821795230",
+      "name": "Millifont water",
+      "type": "Rainwater",
+      "category": "Rainwater",
+      "supplierId": "seed-supplier-1",
+      "supplierName": "Apex Commercial Facilities Ltd.",
+      "totalRegisteredQuantity": 10000,
+      "quantity": 5500,
+      "reservedQuantity": 0,
+      "deliveredQuantity": 4500,
+      "minSupply": 1000,
+      "maxSupply": 10000,
+      "distance": 5.5,
+      "indicativePrice": "₹0.10/L",
+      "pricePerLitre": 0.1,
+      "location": "Plot 14-B, OMR IT Expressway, Sholinganallur, Chennai, Tamil Nadu",
+      "coordinates": [
+        12.98,
+        80.22
+      ],
+      "intendedUses": [
+        "Landscaping",
+        "Construction",
+        "Toilet Flushing"
+      ],
+      "description": "Treated water source registered by Millifont Commercial Facilities Ltd..",
+      "replenishmentSchedule": "Daily continuous output (5,000 L/day)",
+      "quality": "Verified",
+      "verificationStatus": "Verified",
+      "availabilityStatus": "Available",
+      "available": true,
+      "reportExpiry": "2027-04-30",
+      "lastUpdated": "2026-10-24",
+      "labReport": {
+        "certId": "LAB-795217",
+        "labName": "AquaCert Labs Quality Assurance",
+        "testDate": "2026-10-24",
+        "expiryDate": "2027-04-30",
+        "status": "Verified",
+        "ph": 7.2,
+        "turbidity": "1.2 NTU",
+        "tds": "420 ppm",
+        "bod": "4.5 mg/L",
+        "cod": "18 mg/L",
+        "notes": "Uploaded documentation: water_quality_test_report.pdf"
+      },
+      "availableQuantity": 5500
+    },
+    {
       "id": "src-seller-1792772734289",
       "name": "Multimiton water",
       "type": "Treated Wastewater",
@@ -97,6 +146,31 @@
   ],
   "demands": [
     {
+      "id": "dem-1792821882511",
+      "title": "Finfee Park Facility",
+      "buyerId": "seed-buyer-1",
+      "buyerName": "Green Park",
+      "buyerOrg": "Green Park Facilities",
+      "quantity": 4500,
+      "requiredQuantity": 4500,
+      "allocatedQuantity": 0,
+      "fulfilledQuantity": 4500,
+      "remainingQuantity": 0,
+      "purpose": "Irrigation",
+      "status": "Fulfilled",
+      "statusColor": "green",
+      "deliveryLocation": "Chennai, Tamil Nadu",
+      "coordinates": [
+        13.0827,
+        80.2707
+      ],
+      "maxDistance": 25,
+      "budgetPerLitre": 0.15,
+      "requiredDate": "2026-10-27",
+      "createdAt": "2026-10-24",
+      "updatedAt": "2026-10-24T06:05:28.402Z"
+    },
+    {
       "id": "dem-1792772746915",
       "title": "Green Park Facility",
       "buyerId": "seed-buyer-1",
@@ -123,6 +197,34 @@
     }
   ],
   "requests": [
+    {
+      "id": "req-1792821882601",
+      "demandId": "dem-1792821882511",
+      "demandTitle": "Finfee Park Facility",
+      "sourceId": "src-seller-1792821795230",
+      "sourceName": "Millifont water",
+      "supplierId": "seed-supplier-1",
+      "supplierName": "Apex Commercial Facilities Ltd.",
+      "buyerName": "Green Park",
+      "buyerOrg": "Green Park Facilities",
+      "requestedQuantity": 4500,
+      "intendedReuse": "Irrigation",
+      "deliveryLocation": "Chennai, Tamil Nadu",
+      "coordinates": [
+        13.0827,
+        80.2707
+      ],
+      "requestedDate": "2026-10-27",
+      "timeWindow": "Morning (09:00 AM - 12:00 PM)",
+      "estimatedDistance": 5.5,
+      "estimatedDeliveryCost": 1055,
+      "status": "Confirmed",
+      "notes": "Allocation request for Finfee Park Facility",
+      "createdAt": "2026-10-24T06:04:42.601Z",
+      "updatedAt": "2026-10-24T06:04:42.601Z",
+      "acceptedAt": "2026-10-24T06:05:28.402Z",
+      "matchId": "mat-1792821928402"
+    },
     {
       "id": "req-1792772747030",
       "demandId": "dem-1792772746915",
@@ -152,6 +254,54 @@
     }
   ],
   "matches": [
+    {
+      "id": "rescue-1793706904995",
+      "sourceId": "src-seller-1792821795230",
+      "sourceName": "Millifont water (Rescue Alt)",
+      "demandId": "dem-1792821882511",
+      "destinationName": "Finfee Park Facility",
+      "quantity": 4500,
+      "distance": 5.5,
+      "status": "Rescued",
+      "matchedAt": "Just now",
+      "isRescue": true
+    },
+    {
+      "id": "mat-1792821928402",
+      "requestId": "req-1792821882601",
+      "demandId": "dem-1792821882511",
+      "sourceId": "src-seller-1792821795230",
+      "sourceName": "Millifont water",
+      "buyerName": "Green Park Facilities",
+      "buyerContact": "+91 98765 43210",
+      "supplierId": "seed-supplier-1",
+      "supplierName": "Apex Commercial Facilities Ltd.",
+      "matchedQuantity": 4500,
+      "quantity": 4500,
+      "intendedReuse": "Irrigation",
+      "distanceKm": 5.5,
+      "distance": 5.5,
+      "destinationLocation": "Chennai, Tamil Nadu",
+      "destinationName": "Finfee Park Facility",
+      "pickupLocation": "Millifont water Loading Dock, Plot 14-B, OMR IT Expressway, Sholinganallur, Chennai, Tamil Nadu",
+      "status": "Completed",
+      "deliveryMethod": "Tanker Fleet Delivery",
+      "deliveryRef": "DLV-928403",
+      "driverName": "Senthil Kumar (TN-09-CV-8841)",
+      "driverPhone": "+91 97890 44556",
+      "tankerCapacity": "5000 L",
+      "estimatedCost": 1055,
+      "matchDate": "2026-10-24",
+      "scheduledDeliveryDate": "2026-10-27",
+      "instructions": "Receipt confirmed by buyer. Quality checklist verified upon discharge.",
+      "createdAt": "2026-10-24T06:05:28.403Z",
+      "updatedAt": "2026-10-24T06:06:15.862Z",
+      "buyerConfirmed": true,
+      "confirmedAt": "2026-10-24T06:05:54.261Z",
+      "dispatchedAt": "2026-10-24T06:06:07.862Z",
+      "completedAt": "2026-10-24T06:06:15.862Z",
+      "confirmedReusedQuantity": 4500
+    },
     {
       "id": "mat-1792772759857",
       "requestId": "req-1792772747030",
@@ -189,6 +339,60 @@
   ],
   "sellerDocuments": [
     {
+      "id": "doc-1793725490301",
+      "sourceId": "vqueue-1",
+      "sourceName": "Velachery IT Corridor Greywater Plant",
+      "title": "Velachery IT Corridor Greywater Plant Safety & Quality Report",
+      "labName": "AquaCert Labs Quality Assurance",
+      "accreditation": "NABL-TC-8894 (ISO/IEC 17025:2017 Certified)",
+      "reportNumber": "CPCB-AQ-490300",
+      "certificateNumber": "CPCB-AQ-490300",
+      "issueDate": "2026-11-03",
+      "expiryDate": "2027-02-01",
+      "status": "Verified",
+      "overallResult": "Passed",
+      "parameters": {
+        "ph": 7.3,
+        "turbidity": "1.2 NTU",
+        "tds": "390 ppm",
+        "bod": "3.8 mg/L",
+        "cod": "14 mg/L",
+        "eColi": "0 CFU/100mL"
+      },
+      "intendedUses": [
+        "Landscaping",
+        "Toilet Flushing"
+      ],
+      "fileUrl": "/docs/sample_water_quality_report.pdf",
+      "fileSize": "1.4 MB",
+      "verificationNotes": "Full laboratory parameters meet CPCB water reuse norms.",
+      "rejectionReason": null,
+      "reviewedBy": "Dr. Saranya Krishnan, Ph.D. Environmental Engineering",
+      "reviewedAt": "2026-11-03T17:04:50.301Z"
+    },
+    {
+      "id": "doc-1792821795230",
+      "sourceId": "src-seller-1792821795230",
+      "sourceName": "Millifont water",
+      "title": "Millifont water Safety & Quality Report",
+      "labName": "AquaCert Labs Quality Assurance",
+      "accreditation": "NABL Accredited",
+      "reportNumber": "LAB-795217",
+      "issueDate": "2026-10-24",
+      "expiryDate": "2027-04-30",
+      "status": "Verified",
+      "parameters": {
+        "ph": 7.2,
+        "turbidity": "1.2 NTU",
+        "tds": "420 ppm",
+        "bod": "4.5 mg/L",
+        "cod": "18 mg/L"
+      },
+      "fileUrl": "/docs/sample_water_quality_report.pdf",
+      "fileSize": "1.2 MB",
+      "verificationNotes": "Uploaded by seller and verified for safe industrial/non-potable reuse."
+    },
+    {
       "id": "doc-1792772734290",
       "sourceId": "src-seller-1792772734289",
       "sourceName": "Multimiton water",
@@ -212,6 +416,50 @@
     }
   ],
   "activities": [
+    {
+      "id": "act-1793706904995",
+      "type": "rescue",
+      "title": "Emergency Rescue Matched",
+      "detail": "Rerouted 4,500 L from Millifont water to Finfee Park Facility",
+      "time": "Just now",
+      "icon": "shield-alert"
+    },
+    {
+      "id": "act-1792821975862",
+      "type": "complete",
+      "title": "Water Reuse Successfully Completed",
+      "detail": "4,500 L fulfilled from Millifont water to Green Park Facilities",
+      "time": "Just now",
+      "timestamp": "2026-10-24T06:06:15.862Z",
+      "icon": "award"
+    },
+    {
+      "id": "act-1792821928403",
+      "type": "match",
+      "title": "Match Accepted & Water Reserved",
+      "detail": "Millifont water → Green Park (4,500 L)",
+      "time": "Just now",
+      "timestamp": "2026-10-24T06:05:28.403Z",
+      "icon": "link"
+    },
+    {
+      "id": "act-1792821882602",
+      "type": "request",
+      "title": "Water request sent",
+      "detail": "Green Park → Millifont water (4,500 L)",
+      "time": "Just now",
+      "timestamp": "2026-10-24T06:04:42.602Z",
+      "icon": "send"
+    },
+    {
+      "id": "act-1792821882511",
+      "type": "demand",
+      "title": "New Demand Registered",
+      "detail": "Finfee Park Facility - 4,500 L (Irrigation)",
+      "time": "Just now",
+      "timestamp": "2026-10-24T06:04:42.511Z",
+      "icon": "clipboard"
+    },
     {
       "id": "act-1792773188927",
       "type": "complete",
@@ -251,6 +499,16 @@
   ],
   "notifications": [
     {
+      "id": "notif-1792821928403",
+      "title": "Water Request Accepted!",
+      "message": "Millifont water accepted your request for 4,500 L. Delivery scheduled.",
+      "time": "Just now",
+      "timestamp": "2026-10-24T06:05:28.403Z",
+      "read": false,
+      "type": "match",
+      "targetTab": "my-matches"
+    },
+    {
       "id": "notif-1792772759857",
       "title": "Water Request Accepted!",
       "message": "Multimiton water accepted your request for 4,000 L. Delivery scheduled.",
@@ -262,6 +520,55 @@
     }
   ],
   "sellerSources": [
+    {
+      "id": "src-seller-1792821795230",
+      "name": "Millifont water",
+      "type": "Rainwater",
+      "category": "Rainwater",
+      "supplierId": "seed-supplier-1",
+      "supplierName": "Apex Commercial Facilities Ltd.",
+      "totalRegisteredQuantity": 10000,
+      "quantity": 5500,
+      "reservedQuantity": 0,
+      "deliveredQuantity": 4500,
+      "minSupply": 1000,
+      "maxSupply": 10000,
+      "distance": 5.5,
+      "indicativePrice": "₹0.10/L",
+      "pricePerLitre": 0.1,
+      "location": "Plot 14-B, OMR IT Expressway, Sholinganallur, Chennai, Tamil Nadu",
+      "coordinates": [
+        12.98,
+        80.22
+      ],
+      "intendedUses": [
+        "Landscaping",
+        "Construction",
+        "Toilet Flushing"
+      ],
+      "description": "Treated water source registered by Millifont Commercial Facilities Ltd..",
+      "replenishmentSchedule": "Daily continuous output (5,000 L/day)",
+      "quality": "Verified",
+      "verificationStatus": "Verified",
+      "availabilityStatus": "Available",
+      "available": true,
+      "reportExpiry": "2027-04-30",
+      "lastUpdated": "2026-10-24",
+      "labReport": {
+        "certId": "LAB-795217",
+        "labName": "AquaCert Labs Quality Assurance",
+        "testDate": "2026-10-24",
+        "expiryDate": "2027-04-30",
+        "status": "Verified",
+        "ph": 7.2,
+        "turbidity": "1.2 NTU",
+        "tds": "420 ppm",
+        "bod": "4.5 mg/L",
+        "cod": "18 mg/L",
+        "notes": "Uploaded documentation: water_quality_test_report.pdf"
+      },
+      "availableQuantity": 5500
+    },
     {
       "id": "src-seller-1792772734289",
       "name": "Multimiton water",
@@ -314,6 +621,34 @@
   ],
   "sellerRequests": [
     {
+      "id": "req-1792821882601",
+      "demandId": "dem-1792821882511",
+      "demandTitle": "Finfee Park Facility",
+      "sourceId": "src-seller-1792821795230",
+      "sourceName": "Millifont water",
+      "supplierId": "seed-supplier-1",
+      "supplierName": "Apex Commercial Facilities Ltd.",
+      "buyerName": "Green Park",
+      "buyerOrg": "Green Park Facilities",
+      "requestedQuantity": 4500,
+      "intendedReuse": "Irrigation",
+      "deliveryLocation": "Chennai, Tamil Nadu",
+      "coordinates": [
+        13.0827,
+        80.2707
+      ],
+      "requestedDate": "2026-10-27",
+      "timeWindow": "Morning (09:00 AM - 12:00 PM)",
+      "estimatedDistance": 5.5,
+      "estimatedDeliveryCost": 1055,
+      "status": "Confirmed",
+      "notes": "Allocation request for Finfee Park Facility",
+      "createdAt": "2026-10-24T06:04:42.601Z",
+      "updatedAt": "2026-10-24T06:04:42.601Z",
+      "acceptedAt": "2026-10-24T06:05:28.402Z",
+      "matchId": "mat-1792821928402"
+    },
+    {
       "id": "req-1792772747030",
       "demandId": "dem-1792772746915",
       "demandTitle": "Green Park Facility",
@@ -342,6 +677,54 @@
     }
   ],
   "sellerMatches": [
+    {
+      "id": "rescue-1793706904995",
+      "sourceId": "src-seller-1792821795230",
+      "sourceName": "Millifont water (Rescue Alt)",
+      "demandId": "dem-1792821882511",
+      "destinationName": "Finfee Park Facility",
+      "quantity": 4500,
+      "distance": 5.5,
+      "status": "Rescued",
+      "matchedAt": "Just now",
+      "isRescue": true
+    },
+    {
+      "id": "mat-1792821928402",
+      "requestId": "req-1792821882601",
+      "demandId": "dem-1792821882511",
+      "sourceId": "src-seller-1792821795230",
+      "sourceName": "Millifont water",
+      "buyerName": "Green Park Facilities",
+      "buyerContact": "+91 98765 43210",
+      "supplierId": "seed-supplier-1",
+      "supplierName": "Apex Commercial Facilities Ltd.",
+      "matchedQuantity": 4500,
+      "quantity": 4500,
+      "intendedReuse": "Irrigation",
+      "distanceKm": 5.5,
+      "distance": 5.5,
+      "destinationLocation": "Chennai, Tamil Nadu",
+      "destinationName": "Finfee Park Facility",
+      "pickupLocation": "Millifont water Loading Dock, Plot 14-B, OMR IT Expressway, Sholinganallur, Chennai, Tamil Nadu",
+      "status": "Completed",
+      "deliveryMethod": "Tanker Fleet Delivery",
+      "deliveryRef": "DLV-928403",
+      "driverName": "Senthil Kumar (TN-09-CV-8841)",
+      "driverPhone": "+91 97890 44556",
+      "tankerCapacity": "5000 L",
+      "estimatedCost": 1055,
+      "matchDate": "2026-10-24",
+      "scheduledDeliveryDate": "2026-10-27",
+      "instructions": "Receipt confirmed by buyer. Quality checklist verified upon discharge.",
+      "createdAt": "2026-10-24T06:05:28.403Z",
+      "updatedAt": "2026-10-24T06:06:15.862Z",
+      "buyerConfirmed": true,
+      "confirmedAt": "2026-10-24T06:05:54.261Z",
+      "dispatchedAt": "2026-10-24T06:06:07.862Z",
+      "completedAt": "2026-10-24T06:06:15.862Z",
+      "confirmedReusedQuantity": 4500
+    },
     {
       "id": "mat-1792772759857",
       "requestId": "req-1792772747030",
@@ -379,6 +762,36 @@
   ],
   "sellerNotifications": [
     {
+      "id": "notif-s-1792821928403",
+      "title": "Request Accepted & Reserved",
+      "message": "Allocated 4,500 L from Millifont water to Green Park. Waybill DLV-928403.",
+      "time": "Just now",
+      "timestamp": "2026-10-24T06:05:28.403Z",
+      "read": false,
+      "type": "match",
+      "targetTab": "my-matches"
+    },
+    {
+      "id": "notif-s-1792821882601",
+      "title": "New Water Request Received",
+      "message": "Green Park requested 4,500 L from Millifont water for Irrigation.",
+      "time": "Just now",
+      "timestamp": "2026-10-24T06:04:42.602Z",
+      "read": false,
+      "type": "request",
+      "targetTab": "incoming-requests"
+    },
+    {
+      "id": "notif-s-1792821795230",
+      "title": "New Water Source Registered",
+      "message": "Millifont water (8,000 L) registered and submitted for quality verification.",
+      "time": "Just now",
+      "timestamp": "2026-10-24T06:03:15.291Z",
+      "read": false,
+      "type": "source",
+      "targetTab": "my-sources"
+    },
+    {
       "id": "notif-s-1792772759857",
       "title": "Request Accepted & Reserved",
       "message": "Allocated 4,000 L from Multimiton water to Green Park. Waybill DLV-759857.",
@@ -409,5 +822,375 @@
       "targetTab": "my-sources"
     }
   ],
-  "auditLogs": []
+  "auditLogs": [],
+  "transporterProfile": {
+    "id": "seed-transporter-1",
+    "name": "EcoFlow Logistics Fleet",
+    "organization": "EcoFlow Water Tanker Services Pvt. Ltd.",
+    "role": "transporter",
+    "initials": "EF",
+    "email": "transporter@reloop.org",
+    "phone": "+91 98777 66554",
+    "serviceZone": "Greater Chennai & OMR Corridor",
+    "operatingLicense": "TN-TRANS-WTR-2026-9021",
+    "fleetSize": 6,
+    "activeDrivers": 5,
+    "wallet": {
+      "availableBalance": 12300,
+      "escrowBalance": 0,
+      "totalEarned": 52400,
+      "totalTripsCompleted": 2,
+      "totalLitresDelivered": 8500,
+      "totalKmTraversed": 485,
+      "currency": "INR (₹)"
+    },
+    "payoutAccounts": {
+      "bank": {
+        "accountHolder": "EcoFlow Water Tanker Services Pvt. Ltd.",
+        "accountNumber": "50200049182391",
+        "bankName": "HDFC Bank Ltd.",
+        "ifscCode": "HDFC0001224",
+        "branch": "OMR Sholinganallur, Chennai",
+        "accountType": "Current"
+      },
+      "upi": {
+        "upiId": "ecoflow.fleet@okhdfcbank",
+        "provider": "HDFC / Google Pay"
+      }
+    }
+  },
+  "transporterFleet": [
+    {
+      "id": "flt-1",
+      "vehicleNumber": "TN-09-CV-8841",
+      "model": "Tata Prima 2830 Water Bowler",
+      "capacityLitres": 10000,
+      "driverName": "Senthil Kumar",
+      "driverPhone": "+91 97890 44556",
+      "status": "In Transit",
+      "currentTripId": "mat-1792821928402",
+      "currentLoad": 4000,
+      "waterCategory": "Rainwater",
+      "odometerKm": 34210,
+      "lastSanitized": "2026-10-24",
+      "flowMeterCalibrated": true,
+      "gpsDeviceId": "GPS-ECO-8841",
+      "coordinates": [
+        13.0418,
+        80.2341
+      ]
+    },
+    {
+      "id": "flt-2",
+      "vehicleNumber": "TN-09-CW-8492",
+      "model": "BharatBenz 1617R Tanker",
+      "capacityLitres": 12000,
+      "driverName": "K. Rajesh",
+      "driverPhone": "+91 98777 66554",
+      "status": "Available / Standby",
+      "currentTripId": null,
+      "currentLoad": 0,
+      "waterCategory": null,
+      "odometerKm": 28940,
+      "lastSanitized": "2026-10-23",
+      "flowMeterCalibrated": true,
+      "gpsDeviceId": "GPS-ECO-8492",
+      "coordinates": [
+        12.98,
+        80.22
+      ]
+    },
+    {
+      "id": "flt-3",
+      "vehicleNumber": "TN-11-BT-3910",
+      "model": "Ashok Leyland Ecomet Tanker",
+      "capacityLitres": 6000,
+      "driverName": "Murugan V.",
+      "driverPhone": "+91 98402 11993",
+      "status": "Scheduled",
+      "currentTripId": "mat-1792772759857",
+      "currentLoad": 0,
+      "waterCategory": "Treated Wastewater",
+      "odometerKm": 41200,
+      "lastSanitized": "2026-10-25",
+      "flowMeterCalibrated": true,
+      "gpsDeviceId": "GPS-ECO-3910",
+      "coordinates": [
+        13.065,
+        80.26
+      ]
+    },
+    {
+      "id": "flt-4",
+      "vehicleNumber": "TN-07-EK-7722",
+      "model": "Mahindra Blazo X Heavy Bowler",
+      "capacityLitres": 15000,
+      "driverName": "Anbu Selvan",
+      "driverPhone": "+91 97109 88321",
+      "status": "Maintenance Check",
+      "currentTripId": null,
+      "currentLoad": 0,
+      "waterCategory": null,
+      "odometerKm": 58120,
+      "lastSanitized": "2026-10-20",
+      "flowMeterCalibrated": true,
+      "gpsDeviceId": "GPS-ECO-7722",
+      "coordinates": [
+        13.01,
+        80.19
+      ]
+    }
+  ],
+  "transporterPayouts": [
+    {
+      "id": "PAY-WDR-051239",
+      "tripRef": "Wallet Settlement Payout",
+      "date": "2026-11-03 18:20",
+      "sourceName": "EcoFlow Logistics Wallet",
+      "destinationName": "HDFC Bank Ltd. (A/C ...2391)",
+      "quantityLitres": 0,
+      "distanceKm": 0,
+      "baseFee": 0,
+      "distanceFee": 0,
+      "volumeFee": 0,
+      "totalFee": 2000,
+      "method": "Bank Transfer (NEFT/IMPS)",
+      "payoutChannel": "HDFC Bank Ltd. (A/C ...2391)",
+      "status": "Settled",
+      "referenceNumber": "NEFT-RTGS-25117943",
+      "receiptUrl": "#receipt-wdr-051239"
+    },
+    {
+      "id": "PAY-WDR-490113",
+      "tripRef": "Wallet Settlement Payout",
+      "date": "2026-11-03 17:04",
+      "sourceName": "EcoFlow Logistics Wallet",
+      "destinationName": "ecoflow.fleet@okhdfcbank",
+      "quantityLitres": 0,
+      "distanceKm": 0,
+      "baseFee": 0,
+      "distanceFee": 0,
+      "volumeFee": 0,
+      "totalFee": 2500,
+      "method": "Instant UPI Transfer",
+      "payoutChannel": "ecoflow.fleet@okhdfcbank",
+      "status": "Settled",
+      "referenceNumber": "UPI-PAY-72805668",
+      "receiptUrl": "#receipt-wdr-490113"
+    },
+    {
+      "id": "PAY-TRN-9021",
+      "tripRef": "DLV-821928",
+      "date": "2026-10-24 16:30",
+      "sourceName": "Millifont water STP",
+      "destinationName": "Finfee Park Facility",
+      "quantityLitres": 4500,
+      "distanceKm": 5.5,
+      "baseFee": 800,
+      "distanceFee": 330,
+      "volumeFee": 225,
+      "totalFee": 1355,
+      "method": "Direct Escrow Release",
+      "payoutChannel": "HDFC Bank (A/C ...2391)",
+      "status": "Settled",
+      "referenceNumber": "UTR-HDFC-993810291",
+      "receiptUrl": "#receipt-9021"
+    },
+    {
+      "id": "PAY-TRN-8814",
+      "tripRef": "DLV-772759",
+      "date": "2026-10-23 11:15",
+      "sourceName": "Multimiton water",
+      "destinationName": "Green Park Facility",
+      "quantityLitres": 4000,
+      "distanceKm": 4.8,
+      "baseFee": 800,
+      "distanceFee": 288,
+      "volumeFee": 200,
+      "totalFee": 1288,
+      "method": "Instant UPI Payout",
+      "payoutChannel": "ecoflow.fleet@okhdfcbank",
+      "status": "Settled",
+      "referenceNumber": "UPI-REF-48291048",
+      "receiptUrl": "#receipt-8814"
+    },
+    {
+      "id": "PAY-TRN-7412",
+      "tripRef": "DLV-821882",
+      "date": "2026-10-22 18:45",
+      "sourceName": "Apex Tech Park STP",
+      "destinationName": "City Greens Garden",
+      "quantityLitres": 5000,
+      "distanceKm": 6.2,
+      "baseFee": 800,
+      "distanceFee": 372,
+      "volumeFee": 250,
+      "totalFee": 1422,
+      "method": "Bank Transfer (NEFT)",
+      "payoutChannel": "HDFC Bank (A/C ...2391)",
+      "status": "Settled",
+      "referenceNumber": "NEFT-N10294819",
+      "receiptUrl": "#receipt-7412"
+    }
+  ],
+  "verifierProfile": {
+    "id": "seed-verifier-1",
+    "name": "AquaCert Labs Quality Assurance",
+    "organization": "AquaCert Environmental Testing Services Ltd.",
+    "role": "verifier",
+    "initials": "AQ",
+    "email": "verifier@reloop.org",
+    "phone": "+91 98444 33221",
+    "labAddress": "Industrial Estate, Guindy, Chennai, Tamil Nadu 600032",
+    "nablAccreditation": "NABL-TC-8894 (ISO/IEC 17025:2017 Certified)",
+    "cpcbRegistration": "CPCB-LAB-REG-2024-512",
+    "headAuditor": "Dr. Saranya Krishnan, Ph.D. Environmental Engineering",
+    "standardFee": 2500,
+    "wallet": {
+      "availableBalance": 30000,
+      "escrowBalance": 5000,
+      "totalEarned": 100000,
+      "totalTestsConducted": 40,
+      "sourcesCertified": 35,
+      "sourcesBlocked": 5,
+      "currency": "INR (₹)"
+    },
+    "payoutAccounts": {
+      "bank": {
+        "accountHolder": "AquaCert Environmental Testing Services Ltd.",
+        "accountNumber": "109384910283",
+        "bankName": "State Bank of India (SBI)",
+        "ifscCode": "SBIN0004521",
+        "branch": "Industrial Estate Branch, Guindy, Chennai",
+        "accountType": "Current Corporate"
+      },
+      "upi": {
+        "upiId": "aquacertlabs@oksbi",
+        "provider": "SBI Corporate UPI"
+      }
+    }
+  },
+  "verifierPayouts": [
+    {
+      "id": "PAY-VER-WDR-490330",
+      "reportCode": "Lab Settlement Payout",
+      "date": "2026-11-03 17:04",
+      "sourceName": "AquaCert Revenue Account",
+      "testCategory": "Bank Settlement Withdrawal",
+      "standardFee": 5000,
+      "platformDeduction": 0,
+      "netPayout": 5000,
+      "method": "Corporate Bank RTGS/NEFT",
+      "payoutChannel": "State Bank of India (SBI) (A/C ...0283)",
+      "status": "Settled",
+      "referenceNumber": "RTGS-SBI-99079937",
+      "invoiceNumber": "INV-SETTLE-490330"
+    },
+    {
+      "id": "PAY-VER-490302",
+      "reportCode": "CPCB-AQ-490300",
+      "date": "2026-11-03 17:04",
+      "sourceName": "Velachery IT Corridor Greywater Plant",
+      "testCategory": "CPCB Safety Gate Certification",
+      "standardFee": 2500,
+      "platformDeduction": 0,
+      "netPayout": 2500,
+      "method": "Direct Platform Milestone Release",
+      "payoutChannel": "AquaCert Verifier Wallet (Cleared)",
+      "status": "Settled",
+      "referenceNumber": "UTR-AQ-25490302",
+      "invoiceNumber": "INV-AQ-490302"
+    },
+    {
+      "id": "PAY-VER-9411",
+      "reportCode": "LAB-795217",
+      "date": "2026-10-24 14:20",
+      "sourceName": "Millifont water STP",
+      "testCategory": "Comprehensive CPCB Reuse Audit",
+      "standardFee": 2500,
+      "platformDeduction": 0,
+      "netPayout": 2500,
+      "method": "Direct Escrow Release",
+      "payoutChannel": "SBI Current (A/C ...0283)",
+      "status": "Settled",
+      "referenceNumber": "UTR-SBI-7729103841",
+      "invoiceNumber": "INV-AQ-2026-0819"
+    },
+    {
+      "id": "PAY-VER-9320",
+      "reportCode": "LAB-734273",
+      "date": "2026-10-23 16:50",
+      "sourceName": "Multimiton water STP",
+      "testCategory": "Comprehensive CPCB Reuse Audit",
+      "standardFee": 2500,
+      "platformDeduction": 0,
+      "netPayout": 2500,
+      "method": "Corporate UPI Settlement",
+      "payoutChannel": "aquacertlabs@oksbi",
+      "status": "Settled",
+      "referenceNumber": "UPI-AQ-88319201",
+      "invoiceNumber": "INV-AQ-2026-0818"
+    },
+    {
+      "id": "PAY-VER-8910",
+      "reportCode": "LAB-619203",
+      "date": "2026-10-20 10:30",
+      "sourceName": "Adyar Tech Park STP",
+      "testCategory": "Expedited Rescue Clearance",
+      "standardFee": 3500,
+      "platformDeduction": 0,
+      "netPayout": 3500,
+      "method": "Bank Transfer (NEFT/RTGS)",
+      "payoutChannel": "SBI Current (A/C ...0283)",
+      "status": "Settled",
+      "referenceNumber": "NEFT-SBI-49102834",
+      "invoiceNumber": "INV-AQ-2026-0815"
+    }
+  ],
+  "verifierQueue": [
+    {
+      "id": "vqueue-1",
+      "sourceId": "src-new-101",
+      "sourceName": "Velachery IT Corridor Greywater Plant",
+      "supplierName": "Velachery Commercial Facilities Ltd.",
+      "waterCategory": "Commercial Greywater",
+      "quantityLitres": 8000,
+      "facilityAddress": "Velachery Main Road, Chennai",
+      "submissionDate": "2026-10-25",
+      "testUrgency": "High (Pending Buyer Match)",
+      "standardFee": 2500,
+      "status": "Approved",
+      "recommendedUse": "Toilet Flushing & Landscaping",
+      "certificateNumber": "CPCB-AQ-490300",
+      "testedAt": "2026-11-03"
+    },
+    {
+      "id": "vqueue-2",
+      "sourceId": "src-new-102",
+      "sourceName": "Guindy Industrial Cooling Effluent",
+      "supplierName": "Guindy Engineering Hub",
+      "waterCategory": "Treated Wastewater",
+      "quantityLitres": 12000,
+      "facilityAddress": "Guindy Industrial Estate, Chennai",
+      "submissionDate": "2026-10-24",
+      "testUrgency": "Standard Audit",
+      "standardFee": 2500,
+      "status": "Sample In Lab",
+      "recommendedUse": "Construction & Dust Suppression"
+    },
+    {
+      "id": "vqueue-3",
+      "sourceId": "src-new-103",
+      "sourceName": "Ambattur Lake Rainwater Reservoir",
+      "supplierName": "Ambattur Water Reclamation Works",
+      "waterCategory": "Rainwater Harvesting",
+      "quantityLitres": 15000,
+      "facilityAddress": "Ambattur Industrial Area, Chennai",
+      "submissionDate": "2026-10-26",
+      "testUrgency": "Normal",
+      "standardFee": 1500,
+      "status": "Pending Collection",
+      "recommendedUse": "Landscaping & Cooling Towers"
+    }
+  ]
 }
