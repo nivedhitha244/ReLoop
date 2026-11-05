@@ -679,9 +679,23 @@ input, select {
 /* ================= 2-Column Dashboard Layout ================= */
 .dashboard-grid-content {
   display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 24px;
   align-items: start;
+}
+
+@media (min-width: 1440px) {
+  .dashboard-grid-content {
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 26px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .dashboard-grid-content {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 20px;
+  }
 }
 
 .content-center-column {
@@ -2276,23 +2290,80 @@ input, select {
   color: #9cb0ac;
 }
 
-/* Activity Feed */
+/* Activity Count Badge */
+.activity-count-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #065f46;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 7px;
+  border-radius: 12px;
+  line-height: 1.2;
+}
+
+/* Activity Feed (Compact, Scrollable & Readable) */
+.activity-card {
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease;
+}
+
 .activity-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
+  max-height: 330px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.activity-list.expanded-scroll {
+  max-height: 380px;
+}
+
+.activity-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.activity-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.activity-list::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+.activity-list::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
 }
 
 .activity-item-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border-bottom: 1px solid #f8fafc;
+  transition: background-color 0.15s ease;
+}
+
+.activity-item-row:last-child {
+  border-bottom: none;
+}
+
+.activity-item-row:hover {
+  background-color: #f8fafc;
 }
 
 .activity-icon-wrap {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2305,32 +2376,72 @@ input, select {
 .icon-source { background-color: #e0f2fe; color: #0284c7; }
 .icon-complete { background-color: #f0fdf4; color: #16a34a; }
 .icon-rescue { background-color: #ccfbf1; color: #0f766e; }
+.icon-demand { background-color: #eff6ff; color: #2563eb; }
+.icon-request { background-color: #e0f2fe; color: #0284c7; }
+.icon-rejection { background-color: #fef2f2; color: #dc2626; }
+.icon-transit { background-color: #f0fdf4; color: #059669; }
 
 .activity-text {
   flex: 1;
+  min-width: 0;
 }
 
 .act-title-time {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .act-title {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
-  color: #11201d;
+  color: #0f172a;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .act-time {
   font-size: 11px;
-  color: #8b9e9b;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .act-detail {
-  font-size: 11.5px;
-  color: #637774;
-  margin-top: 1px;
+  font-size: 12px;
+  color: #475569;
+  margin-top: 2px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.activity-footer-fade {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+  text-align: center;
+}
+
+.activity-expand-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0d9488;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.activity-expand-btn:hover {
+  color: #0f766e;
+  background-color: #f0fdfa;
+  text-decoration: underline;
 }
 
 /* Need More Water Card */
@@ -3092,7 +3203,7 @@ input, select {
 .spin-once { animation: spin-once 0.5s ease-in-out; }
 
 /* Responsive adjustments */
-@media (max-width: 1200px) {
+@media (max-width: 1024px) {
   .dashboard-grid-content {
     grid-template-columns: 1fr;
   }

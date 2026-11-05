@@ -1,3 +1,4 @@
+import { api } from '../services/api';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -338,38 +339,72 @@ export default function WaterMap({ sources = [], demands = [], onRequestSource }
   };
 
   // Trigger ReLoop Rescue Demo Simulation
-  const handleSimulateDisruption = () => {
+  const handleSimulateDisruption = async () => {
     if (isRescueSimulated) {
       // Reset
       setIsRescueSimulated(false);
       setDisruptedSourceId(null);
       setRescueExplanation(null);
-      setActiveMatchPair({ sourceId: 'src-1', demandId: 'dem-1' });
+      if (sources.length > 0 && demands.length > 0) {
+        setActiveMatchPair({ sourceId: sources[0].id, demandId: demands[0].id });
+      }
       return;
     }
 
-    // Step 1: Disrupt Factory A
+    if (!sources || sources.length === 0 || !demands || demands.length === 0) return;
+
+    const failedSource = sources[0];
+    const targetDemand = demands[0];
+
     setIsRescueSimulated(true);
-    setDisruptedSourceId('src-1');
+    setDisruptedSourceId(failedSource.id);
 
-    // Step 2: Algorithmic failover to Apartment Complex
-    // (STP Plant is rejected because quality is Pending lab clearance!)
-    // (IT Park is rejected because RO Reject high TDS is unsuitable for delicate green park turf!)
-    // Apartment Complex has 100% lab-verified greywater suitable for irrigation!
-    const targetDemand = demands.find(d => d.id === 'dem-1') || demands[0];
-    const rescueAlternative = sources.find(s => s.id === 'src-4') || sources[3];
+    try {
+      const res = await api.simulateRescue({
+        scenarioId: 'CONTAMINATION_TURBIDITY',
+        failedSourceId: failedSource.id,
+        demandId: targetDemand.id,
+        searchRadiusKm: 15,
+        isSimulated: true
+      });
 
-    setActiveMatchPair({
-      sourceId: rescueAlternative.id,
-      demandId: targetDemand.id
-    });
-
-    setRescueExplanation({
-      disruptedName: 'Factory A',
-      backupName: rescueAlternative.name,
-      reason: 'Factory A supply line disrupted by automated valve maintenance. ReLoop Rescue analyzed all 3 alternative sources: rejected STP Plant (Pending lab microbial certificate), rejected IT Park (High TDS RO reject unsuitable for grass turf), and locked in Apartment Complex (100% lab-verified greywater, 4.2 km).',
-      dispatchedLiters: Math.min(rescueAlternative.quantity, targetDemand.quantity)
-    });
+      if (res && res.winningAlternative) {
+        setActiveMatchPair({
+          sourceId: res.winningAlternative.sourceId,
+          demandId: targetDemand.id
+        });
+        setRescueExplanation({
+          disruptedName: failedSource.name,
+          backupName: res.winningAlternative.sourceName,
+          reason: `${failedSource.name} supply suspended by Safe Reuse Gate (${res.incident?.failureType || 'Optical turbidity spike'}). ReLoop Rescue evaluated ${res.evaluatedCandidates?.length || 0} regional alternatives: ${res.winningAlternative.sourceName} locked in with score ${res.winningAlternative.score}/100 at ${res.winningAlternative.distanceKm} km.`,
+          dispatchedLiters: res.routeReassignment ? res.routeReassignment.dispatchedVolumeLiters : Math.min(res.winningAlternative.availableQuantity, targetDemand.quantity || 4000)
+        });
+      } else {
+        const backup = sources.find(s => s.id !== failedSource.id && (s.quality === 'Verified' || s.verificationStatus === 'Verified')) || sources[1] || failedSource;
+        setActiveMatchPair({
+          sourceId: backup.id,
+          demandId: targetDemand.id
+        });
+        setRescueExplanation({
+          disruptedName: failedSource.name,
+          backupName: backup.name,
+          reason: `${failedSource.name} supply suspended by Safe Reuse Gate. ReLoop Rescue evaluated nearby nodes and rerouted supply to verified backup ${backup.name}.`,
+          dispatchedLiters: Math.min(backup.quantity || 3000, targetDemand.quantity || 4000)
+        });
+      }
+    } catch (e) {
+      const backup = sources.find(s => s.id !== failedSource.id && (s.quality === 'Verified' || s.verificationStatus === 'Verified')) || sources[1] || failedSource;
+      setActiveMatchPair({
+        sourceId: backup.id,
+        demandId: targetDemand.id
+      });
+      setRescueExplanation({
+        disruptedName: failedSource.name,
+        backupName: backup.name,
+        reason: `${failedSource.name} supply suspended by Safe Reuse Gate. ReLoop Rescue evaluated nearby nodes and rerouted supply to verified backup ${backup.name}.`,
+        dispatchedLiters: Math.min(backup.quantity || 3000, targetDemand.quantity || 4000)
+      });
+    }
   };
 
   // Compatibility score between active pair

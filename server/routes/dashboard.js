@@ -29,15 +29,18 @@ router.get('/stats', (req, res) => {
     const matches = db.matches || [];
     const total = demands.reduce((sum, d) => sum + Number(d.quantity || d.requiredQuantity || 0), 0);
     const matched = matches.reduce((sum, m) => sum + Number(m.quantity || m.matchedQuantity || 0), 0);
-    const unmet = Math.max(0, total - matched);
-    const percent = total > 0 ? Math.round((matched / total) * 100) : 0;
+    const completedMatches = matches.filter(m => m.status === 'Completed');
+    const realizedFreshwater = completedMatches.reduce((sum, m) => sum + Number(m.confirmedReusedQuantity || m.matchedQuantity || m.quantity || 0), 0);
+    const unmet = Math.max(0, total - realizedFreshwater);
+    const percent = total > 0 ? Math.round((realizedFreshwater / total) * 100) : 0;
 
     return res.json({
       totalDemand: total,
       matchedQuantity: matched,
       matchedPercent: percent,
-      freshwaterSaved: matched,
-      freshwaterSavedEq: matched * 2,
+      freshwaterSaved: realizedFreshwater,
+      freshwaterSavedEq: realizedFreshwater * 2,
+      completedDeliveries: completedMatches.length,
       unmetDemand: unmet,
       activeRequestsCount: demands.filter(d => d.status === 'Active' || d.status === 'Partially Matched').length,
       transportCost: Math.round(matched * 0.35),

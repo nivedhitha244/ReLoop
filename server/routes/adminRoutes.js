@@ -393,46 +393,29 @@ router.get('/requests', async (req, res) => {
     const db = loadDB();
 
     const canonicalRequests = (db.requests || []).map(r => ({
+      ...r,
+      id: r.id,
       _id: r.id,
-      requestCode: r.id.toUpperCase().replace('REQ-', 'REQ-2026-'),
-      buyerName: r.buyerName || 'Green Park',
-      title: r.demandTitle || `Request for ${r.sourceName || 'Water'}`,
-      waterCategory: r.intendedReuse || 'Treated Wastewater',
-      requiredQuantity: Number(r.requestedQuantity) || 4000,
-      fulfilledQuantity: r.status === 'Confirmed' || r.status === 'Completed' ? (Number(r.requestedQuantity) || 4000) : 0,
+      requestCode: r.requestCode || r.id.toUpperCase().replace('REQ-', 'REQ-2026-'),
+      buyerName: r.buyerName || 'Green Park Facilities',
+      title: r.demandTitle || `Request to ${r.sourceName || 'Supplier'}`,
+      sourceName: r.sourceName || 'Water Source',
+      waterCategory: r.intendedReuse || r.waterCategory || 'Treated Wastewater',
+      intendedReuse: r.intendedReuse || r.waterCategory || 'Treated Wastewater',
+      requiredQuantity: Number(r.requestedQuantity || r.quantity) || 4000,
+      requestedQuantity: Number(r.requestedQuantity || r.quantity) || 4000,
+      fulfilledQuantity: r.status === 'Confirmed' || r.status === 'Completed' ? (Number(r.requestedQuantity || r.quantity) || 4000) : 0,
       purpose: r.intendedReuse || 'Flushing',
-      priority: 'Standard',
-      status: r.status || 'Active',
-      matchingStatus: r.status === 'Confirmed' ? 'Matched' : 'In Review',
-      deliveryLocation: { 
+      priority: r.priority || 'Standard',
+      status: r.status || 'Pending',
+      matchingStatus: r.status === 'Confirmed' ? 'Matched' : r.status === 'Accepted' ? 'Accepted' : 'In Review',
+      deliveryLocation: typeof r.deliveryLocation === 'object' ? r.deliveryLocation : { 
         address: r.deliveryLocation || 'Chennai, Tamil Nadu', 
         coordinates: r.coordinates || [13.0418, 80.2341] 
       },
+      requestedDate: r.requestedDate || 'ASAP',
       createdAt: r.createdAt || new Date().toISOString(),
     }));
-
-    for (const d of (db.demands || [])) {
-      if (!canonicalRequests.some(cr => cr._id === d.id || cr.title === d.title)) {
-        canonicalRequests.push({
-          _id: d.id,
-          requestCode: d.id.toUpperCase().replace('DEM-', 'REQ-2026-'),
-          buyerName: d.buyerName || 'Green Park',
-          title: d.title || 'Water Demand',
-          waterCategory: d.purpose || 'Treated Wastewater',
-          requiredQuantity: Number(d.quantity) || 4000,
-          fulfilledQuantity: Number(d.fulfilledQuantity) || 0,
-          purpose: d.purpose || 'Irrigation',
-          priority: 'Standard',
-          status: d.status || 'Active',
-          matchingStatus: d.status === 'Matched' ? 'Matched' : 'Unmatched',
-          deliveryLocation: { 
-            address: d.deliveryLocation || 'Chennai, Tamil Nadu', 
-            coordinates: d.coordinates || [13.0827, 80.2707] 
-          },
-          createdAt: d.createdAt || new Date().toISOString(),
-        });
-      }
-    }
 
     let mongoRequests = [];
     if (isDbConnected()) {
@@ -489,20 +472,26 @@ router.get('/matches', async (req, res) => {
     const db = loadDB();
 
     const canonicalMatches = (db.matches || []).map(m => ({
+      ...m,
+      id: m.id,
       _id: m.id,
-      matchCode: m.id.toUpperCase().replace('MAT-', 'MCH-2026-'),
-      sourceName: m.sourceName || 'Water Source',
-      destinationName: m.destinationName || m.buyerName || 'Green Park',
+      matchCode: m.matchCode || m.id.toUpperCase().replace('MAT-', 'MCH-2026-'),
+      sourceName: m.sourceName || m.source || 'Water Source',
+      destinationName: m.destinationName || m.buyerName || m.destination || 'Green Park Facility',
+      buyerName: m.buyerName || m.destinationName || 'Green Park Facilities',
       quantity: Number(m.matchedQuantity || m.quantity) || 4000,
       matchedQuantity: Number(m.matchedQuantity || m.quantity) || 4000,
       distanceKm: Number(m.distanceKm || m.distance) || 5.5,
-      waterCategory: m.intendedReuse || 'Treated Wastewater',
-      matchScore: 94,
-      status: m.status === 'Confirmed' ? 'Admin Approved' : (m.status || 'Proposed'),
-      deliveryReference: m.deliveryRef || `DLV-${Date.now().toString().slice(-6)}`,
+      waterCategory: m.intendedReuse || m.waterCategory || 'Treated Wastewater',
+      matchScore: m.matchScore || 94,
+      status: m.status || 'Confirmed',
+      deliveryRef: m.deliveryRef || m.waybill || `DLV-${(m.id || Date.now()).toString().slice(-6)}`,
+      deliveryReference: m.deliveryRef || m.waybill || `DLV-${(m.id || Date.now()).toString().slice(-6)}`,
       driverName: m.driverName || 'Senthil Kumar (TN-09-CV-8841)',
       driverPhone: m.driverPhone || '+91 97890 44556',
-      scoreFactors: {
+      tankerCapacity: m.tankerCapacity || `${m.matchedQuantity || m.quantity || 4000} L`,
+      estimatedCost: m.estimatedCost || Math.round((Number(m.matchedQuantity || m.quantity) || 4000) * 0.25),
+      scoreFactors: m.scoreFactors || {
         proximityScore: 95,
         quantityScore: 100,
         qualityScore: 92,
@@ -1215,14 +1204,20 @@ router.get('/map/locations', async (req, res) => {
 // ---------------------------------------------------------------------------
 router.get('/analytics/impact', async (req, res) => {
   try {
-    let totalLitres = 48000;
-    let completedCount = 12;
+    const db = loadDB();
+    const completedMatches = (db.matches || []).filter(m => m.status === 'Completed');
+    let totalLitres = completedMatches.reduce((sum, m) => sum + Number(m.confirmedReusedQuantity || m.matchedQuantity || m.quantity || 0), 0);
+    let completedCount = completedMatches.length;
 
     if (isDbConnected()) {
-      const completed = await Delivery.find({ status: 'Completed' });
-      if (completed.length > 0) {
-        totalLitres = completed.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
-        completedCount = completed.length;
+      try {
+        const completed = await Delivery.find({ status: 'Completed' });
+        if (completed && completed.length > 0) {
+          totalLitres = completed.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
+          completedCount = completed.length;
+        }
+      } catch (e) {
+        // Fallback to data_store.json calculations
       }
     }
 

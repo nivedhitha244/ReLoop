@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import GreetingBanner from './GreetingBanner';
@@ -72,8 +72,14 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
     }, 3800);
   };
 
-  // Initial data load
-  const loadData = async () => {
+  const inFlightRefreshRef = useRef(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Authoritative real-time data load with in-flight debounce and toast feedback
+  const loadData = async (showFeedback = false) => {
+    if (inFlightRefreshRef.current) return;
+    inFlightRefreshRef.current = true;
+    setIsRefreshing(true);
     try {
       const [statsData, sourcesData, demandsData, actsData, matchesData, requestsData] = await Promise.all([
         api.getStats(),
@@ -89,8 +95,21 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
       setActivities(actsData);
       setMatches(matchesData);
       setRequests(requestsData);
+
+      if (showFeedback) {
+        const activeCount = (matchesData || []).filter(m => m.status === 'In Transit' || m.status === 'Confirmed' || m.status === 'Scheduled').length;
+        const completedCount = (matchesData || []).filter(m => m.status === 'Completed').length;
+        showToast(`Status refreshed: ${activeCount} active deliveries, ${completedCount} completed reuses, ${(requestsData || []).length} requests synchronized.`, 'success');
+      }
+      return { matches: matchesData, requests: requestsData };
     } catch (err) {
       console.error("Error loading dashboard data", err);
+      if (showFeedback) {
+        showToast(`Failed to refresh data: ${err.message || 'Backend connection error'}`, 'error');
+      }
+    } finally {
+      inFlightRefreshRef.current = false;
+      setIsRefreshing(false);
     }
   };
 
@@ -501,6 +520,8 @@ export default function BuyerDashboard({ currentUser, onLogout, onSwitchPortal }
                 setIsRescueModalOpen(true);
               }}
               onRefresh={loadData}
+              isRefreshing={isRefreshing}
+              isRefreshing={isRefreshing}
               showToast={showToast}
             />
           )}

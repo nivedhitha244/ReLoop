@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Search, 
   FileText, 
@@ -9,16 +9,26 @@ import {
   CheckCircle2, 
   Clock, 
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  AlertCircle,
+  Truck,
+  Activity
 } from 'lucide-react';
 
 export default function RightSidebar({ 
   demands, 
-  activities, 
+  activities = [], 
   onQuickAction, 
   onOpenDemandModal, 
   onOpenRescueModal 
 }) {
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const totalActivities = (activities || []).length;
+  const initialDisplayCount = 5;
+  const displayedActivities = showAllActivities 
+    ? (activities || []) 
+    : (activities || []).slice(0, initialDisplayCount);
+
   return (
     <aside className="reloop-right-column">
       {/* 1. Quick Actions */}
@@ -112,6 +122,9 @@ export default function RightSidebar({
           <div className="header-icon-label">
             <FileText size={16} className="text-emerald-700" />
             <h3 className="side-card-title">My Demands</h3>
+            {demands && demands.length > 0 && (
+              <span className="activity-count-badge">{demands.length}</span>
+            )}
           </div>
           <button className="view-all-link-btn" onClick={() => onQuickAction('my-demands')}>
             View all →
@@ -119,64 +132,105 @@ export default function RightSidebar({
         </div>
 
         <div className="demands-list">
-          {demands.map((item) => (
-            <div key={item.id} className="demand-row-item">
-              <div className="demand-icon-col">
-                <div className={`demand-icon-pill pill-${item.statusColor}`}>
-                  <FileText size={15} />
-                </div>
-              </div>
-
-              <div className="demand-details">
-                <div className="demand-name">{item.title}</div>
-                <div className="demand-meta">
-                  {item.quantity.toLocaleString()} L · {item.purpose}
-                </div>
-              </div>
-
-              <div className="demand-status-col">
-                <span className={`status-pill pill-${item.status.toLowerCase()}`}>
-                  {item.status}
-                </span>
-                <ChevronRight size={15} className="demand-chevron" />
-              </div>
+          {(!demands || demands.length === 0) ? (
+            <div style={{ textAlign: 'center', padding: '24px 12px', color: '#94a3b8', fontSize: '13px' }}>
+              <span>No active demands</span>
             </div>
-          ))}
+          ) : (
+            demands.slice(0, 4).map((item) => (
+              <div key={item.id} className="demand-row-item">
+                <div className="demand-icon-col">
+                  <div className={`demand-icon-pill pill-${item.statusColor || 'green'}`}>
+                    <FileText size={15} />
+                  </div>
+                </div>
+
+                <div className="demand-details">
+                  <div className="demand-name">{item.title}</div>
+                  <div className="demand-meta">
+                    {(item.quantity || item.requiredQuantity || 0).toLocaleString()} L · {item.purpose}
+                  </div>
+                </div>
+
+                <div className="demand-status-col">
+                  <span className={`status-pill pill-${(item.status || 'Active').toLowerCase()}`}>
+                    {item.status || 'Active'}
+                  </span>
+                  <ChevronRight size={15} className="demand-chevron" />
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* 4. Recent Activity */}
+      {/* 4. Recent Activity (Compact, Fixed Max-Height with Independent Scrolling) */}
       <div className="side-card activity-card">
         <div className="side-card-header flex-between">
           <div className="header-icon-label">
             <Clock size={16} className="text-emerald-700" />
             <h3 className="side-card-title">Recent Activity</h3>
+            {totalActivities > 0 && (
+              <span className="activity-count-badge">{totalActivities}</span>
+            )}
           </div>
-          <button className="view-all-link-btn">
-            View all →
-          </button>
+          {totalActivities > initialDisplayCount && (
+            <button 
+              type="button"
+              className="view-all-link-btn"
+              onClick={() => setShowAllActivities(!showAllActivities)}
+              title={showAllActivities ? "Show compact view" : "View full activity history"}
+            >
+              {showAllActivities ? 'Show less ↑' : `View all (${totalActivities}) →`}
+            </button>
+          )}
         </div>
 
-        <div className="activity-list">
-          {activities.map((act) => (
-            <div key={act.id} className="activity-item-row">
-              <div className={`activity-icon-wrap icon-${act.type}`}>
-                {act.type === 'match' && <Link2 size={13} />}
-                {act.type === 'approval' && <FileText size={13} />}
-                {act.type === 'source' && <Droplet size={13} />}
-                {act.type === 'complete' && <CheckCircle2 size={13} />}
-                {act.type === 'rescue' && <ShieldAlert size={13} />}
-              </div>
-              <div className="activity-text">
-                <div className="act-title-time">
-                  <span className="act-title">{act.title}</span>
-                  <span className="act-time">{act.time}</span>
-                </div>
-                <div className="act-detail">{act.detail}</div>
-              </div>
+        <div className={`activity-list ${showAllActivities ? 'expanded-scroll' : ''}`}>
+          {(!activities || activities.length === 0) ? (
+            <div style={{ textAlign: 'center', padding: '24px 12px', color: '#94a3b8', fontSize: '13px' }}>
+              <span>No recent activities recorded</span>
             </div>
-          ))}
+          ) : (
+            displayedActivities.map((act) => (
+              <div key={act.id} className="activity-item-row">
+                <div className={`activity-icon-wrap icon-${act.type || 'source'}`}>
+                  {act.type === 'match' && <Link2 size={13} />}
+                  {act.type === 'approval' && <FileText size={13} />}
+                  {act.type === 'source' && <Droplet size={13} />}
+                  {act.type === 'complete' && <CheckCircle2 size={13} />}
+                  {act.type === 'rescue' && <ShieldAlert size={13} />}
+                  {act.type === 'demand' && <FileText size={13} />}
+                  {act.type === 'request' && <Droplet size={13} />}
+                  {act.type === 'rejection' && <AlertCircle size={13} />}
+                  {act.type === 'transit' && <Truck size={13} />}
+                  {!['match', 'approval', 'source', 'complete', 'rescue', 'demand', 'request', 'rejection', 'transit'].includes(act.type) && (
+                    <Clock size={13} />
+                  )}
+                </div>
+                <div className="activity-text">
+                  <div className="act-title-time">
+                    <span className="act-title">{act.title}</span>
+                    <span className="act-time">{act.time || 'Recently'}</span>
+                  </div>
+                  <div className="act-detail">{act.detail}</div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
+
+        {totalActivities > initialDisplayCount && !showAllActivities && (
+          <div className="activity-footer-fade">
+            <button 
+              type="button"
+              className="activity-expand-btn"
+              onClick={() => setShowAllActivities(true)}
+            >
+              Show {totalActivities - initialDisplayCount} more activities...
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 5. Need More Water Card */}
@@ -209,7 +263,7 @@ export default function RightSidebar({
 
         <h4 className="rescue-heading">ReLoop Rescue</h4>
         <p className="rescue-desc">
-          A source becomes unavailable? We'll find an alternative for you.
+          A source becomes unavailable? We'll find an alternative for you within 10 km.
         </p>
 
         <button 

@@ -23,6 +23,7 @@ import {
   CreditCard,
 } from 'lucide-react';
 import WaterMap from './WaterMap';
+import RescueDashboard from '../rescue/RescueDashboard';
 
 // ============================================================================
 // 1. FIND WATER TAB VIEW
@@ -336,13 +337,29 @@ export function MyMatchesTab({
   onPayAndDispatch,
   onOpenRescue, 
   onRefresh, 
+  isRefreshing = false,
   showToast 
 }) {
   const [activeSection, setActiveSection] = useState('all'); // 'all' | 'matches' | 'requests'
+  const [localRefreshing, setLocalRefreshing] = useState(false);
 
   const completedCount = matches.filter(m => m.status === 'Completed').length;
   const inTransitCount = matches.filter(m => m.status === 'In Transit' || m.status === 'Scheduled' || m.status === 'Confirmed').length;
   const pendingRequests = requests.filter(r => r.status === 'Pending').length;
+
+  const refreshing = isRefreshing || localRefreshing;
+
+  const handleManualRefresh = async () => {
+    if (refreshing || !onRefresh) return;
+    setLocalRefreshing(true);
+    try {
+      await onRefresh(true);
+    } catch (err) {
+      if (showToast) showToast('Failed to refresh status: ' + (err.message || 'Network error'), 'error');
+    } finally {
+      setLocalRefreshing(false);
+    }
+  };
 
   return (
     <div className="tab-page-container">
@@ -355,12 +372,28 @@ export function MyMatchesTab({
         </div>
         {onRefresh && (
           <button 
-            className="btn-outline-sm"
-            onClick={onRefresh}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            className="btn-outline-sm refresh-status-btn"
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            title={refreshing ? "Fetching real-time statuses from backend..." : "Fetch latest match, delivery, and request data"}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: refreshing ? 'not-allowed' : 'pointer',
+              opacity: refreshing ? 0.75 : 1,
+              transition: 'all 0.2s ease',
+              backgroundColor: '#fff',
+              border: '1px solid #cbd5e1',
+              color: '#0f172a'
+            }}
           >
-            <RefreshCw size={14} />
-            Refresh Status
+            <RefreshCw size={14} className={refreshing ? 'reloop-spin-icon' : ''} style={{ color: '#0d9488' }} />
+            <span>{refreshing ? 'Refreshing Status...' : 'Refresh Status'}</span>
           </button>
         )}
       </div>
@@ -434,9 +467,32 @@ export function MyMatchesTab({
                         Waybill: <strong>{m.deliveryRef}</strong>
                       </span>
                     )}
+                    {m.isRescue && (
+                      <span style={{ 
+                        fontSize: '11px', 
+                        color: '#065f46', 
+                        background: '#d1fae5', 
+                        border: '1px solid #6ee7b7', 
+                        padding: '2px 8px', 
+                        borderRadius: '4px', 
+                        fontWeight: 700, 
+                        marginLeft: '8px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <ShieldAlert size={12} className="text-emerald-700" />
+                        ReLoop Rescue™ Rerouted
+                      </span>
+                    )}
                     <h3 className="match-route-title" style={{ marginTop: '4px' }}>
                       {m.sourceName || m.source} ➔ {m.destinationName || m.buyerName || m.destination}
                     </h3>
+                    {m.previousSourceName && (
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>
+                        ⚠️ Disrupted supplier failover: <span style={{ textDecoration: 'line-through' }}>{m.previousSourceName}</span>
+                      </p>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span className={`match-status-badge ${isCompleted ? 'completed' : isConfirmed ? 'completed' : isInTransit ? 'transit' : 'scheduled'}`}>
@@ -841,78 +897,7 @@ export function MyMatchesTab({
 export function ReloopRescueTab({ onOpenRescueModal }) {
   return (
     <div className="tab-page-container">
-      <div className="rescue-hero-card">
-        <div className="rescue-hero-left">
-          <div className="rescue-badge-pill">
-            <ShieldAlert size={14} />
-            AUTOMATED REDUNDANCY & FAILOVER
-          </div>
-          <h2 className="rescue-hero-title">ReLoop Rescue™ Continuous Supply Shield</h2>
-          <p className="rescue-hero-desc">
-            Water disruptions happen. When an active water supplier experiences an unexpected shortage,
-            contamination alert, or audit failure, ReLoop Rescue automatically re-routes your required supply
-            to verified alternatives within a 10 km radius in seconds.
-          </p>
-
-          <div className="rescue-actions-row">
-            <button className="btn-rescue-action" onClick={onOpenRescueModal}>
-              ⚡ Run Live Rescue Simulation
-            </button>
-            <span className="rescue-status-tag">
-              <CheckCircle2 size={15} /> All 4 Alternative Nodes Standby
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3 Step Architecture */}
-      <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '28px 0 16px' }}>
-        How ReLoop Rescue™ Protects Your Water Continuity:
-      </h3>
-      <div className="rescue-steps-grid">
-        <div className="rescue-step-card">
-          <div className="step-num-icon">1</div>
-          <h4>Instant Anomaly Detection</h4>
-          <p>Continuous IoT sensor audits and verifier test checks detect water purity drops or volume anomalies before delivery.</p>
-        </div>
-        <div className="rescue-step-card">
-          <div className="step-num-icon">2</div>
-          <h4>10 km Radius Spatial Scan</h4>
-          <p>Our spatial matching engine searches nearby suppliers with pre-approved water quality criteria matching your exact application.</p>
-        </div>
-        <div className="rescue-step-card">
-          <div className="step-num-icon">3</div>
-          <h4>Automated Fleet Re-Route</h4>
-          <p>Transporters receive dynamic route updates on their GPS terminal to pick up from the fallback supplier with zero manual friction.</p>
-        </div>
-      </div>
-
-      {/* Standby Nodes */}
-      <div className="standby-nodes-box">
-        <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginBottom: '14px' }}>
-          Active Backup Redundancy Nodes (Chennai Metro):
-        </h4>
-        <div className="nodes-table">
-          <div className="node-row">
-            <span>🏭 <strong>Apex STP Plant Secondary Basin</strong></span>
-            <span>7,000 L Reserve</span>
-            <span className="node-dist">4.2 km</span>
-            <span className="node-ready">Ready for Failover</span>
-          </div>
-          <div className="node-row">
-            <span>🏢 <strong>Tidel Tech Park Industrial Cooling Return</strong></span>
-            <span>4,000 L Reserve</span>
-            <span className="node-dist">5.8 km</span>
-            <span className="node-ready">Ready for Failover</span>
-          </div>
-          <div className="node-row">
-            <span>🏢 <strong>Olympia Tech Park Dual Filter System</strong></span>
-            <span>6,500 L Reserve</span>
-            <span className="node-dist">7.1 km</span>
-            <span className="node-ready">Ready for Failover</span>
-          </div>
-        </div>
-      </div>
+      <RescueDashboard onOpenRescueModal={onOpenRescueModal} />
     </div>
   );
 }

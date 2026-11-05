@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sellerRoutes from '../server/routes/seller.js';
+import rescueRoutes from '../server/routes/rescue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/rescue', rescueRoutes);
 app.use('/api/seller', sellerRoutes);
 
 // In-memory & JSON backed data store (MongoDB schema structure)
@@ -285,60 +287,6 @@ app.post('/api/matches/request', (req, res) => {
   });
   recalculateStats();
   res.status(201).json(match);
-});
-
-// ReLoop Rescue: Autonomous backup sourcing
-app.post('/api/rescue', (req, res) => {
-  const { demandId, failedSourceId } = req.body;
-  const targetDemand = db.demands.find(d => d.id === demandId) || db.demands.find(d => d.status === 'Active') || db.demands[0];
-  
-  // Find alternative verified sources not equal to failed source
-  const alternatives = db.sources.filter(s => s.id !== failedSourceId && s.available);
-  
-  if (alternatives.length === 0) {
-    return res.status(404).json({ message: "No emergency backup sources available in immediate range." });
-  }
-
-  // Sort by closest distance and verified quality
-  alternatives.sort((a, b) => {
-    if (a.quality === 'Verified' && b.quality !== 'Verified') return -1;
-    if (b.quality === 'Verified' && a.quality !== 'Verified') return 1;
-    return a.distance - b.distance;
-  });
-
-  const bestRescue = alternatives[0];
-  const rescueQty = Math.min(bestRescue.quantity, targetDemand.quantity);
-
-  const newMatch = {
-    id: `rescue-${Date.now()}`,
-    sourceId: bestRescue.id,
-    sourceName: bestRescue.name + " (Rescue Alt)",
-    demandId: targetDemand.id,
-    destinationName: targetDemand.title,
-    quantity: rescueQty,
-    distance: bestRescue.distance,
-    status: "Rescued",
-    matchedAt: "Just now",
-    isRescue: true
-  };
-
-  db.matches.unshift(newMatch);
-  db.activities.unshift({
-    id: `act-${Date.now()}`,
-    type: "rescue",
-    title: "ReLoop Rescue activated",
-    detail: `Backup routed from ${bestRescue.name} to ${targetDemand.title}`,
-    time: "Just now",
-    icon: "shield"
-  });
-
-  recalculateStats();
-  res.json({
-    message: "ReLoop Rescue successfully matched alternative source!",
-    match: newMatch,
-    rescuedSource: bestRescue,
-    demand: targetDemand
-  });
 });
 
 app.get('/api/activities', (req, res) => {

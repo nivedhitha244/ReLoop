@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, onOpenRescue, currentUser, onLogout, onSwitchPortal }) {
-  const displayName = "Nivi world";
-  const initials = "NW";
+  const displayName = currentUser?.fullName || currentUser?.name || currentUser?.email?.split('@')[0] || 'Buyer';
+  const initials = displayName.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'BP';
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'find-water', label: 'Find Water', icon: Search },

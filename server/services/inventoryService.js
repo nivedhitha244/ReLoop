@@ -444,6 +444,9 @@ export async function createWaterRequest(params) {
     }
 
     // Check if demand is already fully satisfied
+    if (demand.status === 'Fulfilled') {
+      throw new Error('Cannot request water: Demand is already fully allocated or fulfilled.');
+    }
     let remainingDemand = demand.remainingQuantity !== undefined 
       ? demand.remainingQuantity 
       : Math.max(0, (demand.requiredQuantity || demand.quantity) - (demand.allocatedQuantity || 0) - (demand.fulfilledQuantity || 0));

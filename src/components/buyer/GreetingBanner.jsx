@@ -2,7 +2,8 @@ import React from 'react';
 import { Leaf, MapPin, SunMedium } from 'lucide-react';
 
 export default function GreetingBanner({ user }) {
-  const dateStr = user?.weather?.date || "Tue, 22 Apr 2025";
+  const displayName = user?.name || user?.fullName || 'there';
+  const dateStr = user?.weather?.date || new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const locationStr = user?.location || "Chennai, Tamil Nadu";
   const tempStr = user?.weather?.temp || "32°C";
   const conditionStr = user?.weather?.condition || "Partly cloudy";
@@ -30,7 +31,7 @@ export default function GreetingBanner({ user }) {
           <Leaf size={22} className="leaf-svg" />
         </div>
         <div className="banner-titles">
-          <h1 className="banner-heading">Welcome, Nivi world!</h1>
+          <h1 className="banner-heading">Welcome, {displayName}!</h1>
           <p className="banner-subtext">Find, request and track reusable water for a greener tomorrow.</p>
         </div>
       </div>

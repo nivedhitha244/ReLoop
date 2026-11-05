@@ -76,3 +76,13 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* ReLoop Spin & Live Feedback Animations */
+@keyframes reloopSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.reloop-spin-icon {
+  animation: reloopSpin 1s linear infinite;
+}

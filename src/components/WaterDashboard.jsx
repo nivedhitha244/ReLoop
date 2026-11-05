@@ -10,6 +10,7 @@ import RightSidebar from './RightSidebar';
 import { CreateDemandModal, RequestModal, RescueModal } from './Modals';
 import { api } from '../services/api';
 import { CheckCircle2, Info } from 'lucide-react';
+import RescueDashboard from './rescue/RescueDashboard';
 import '../dashboard.css';
 
 export default function WaterDashboard({ currentUser, onLogout }) {
@@ -163,23 +164,28 @@ export default function WaterDashboard({ currentUser, onLogout }) {
         />
 
         <main className="reloop-dashboard-body">
-          {/* Top Greeting Banner */}
-          <GreetingBanner user={user} />
+          {activeTab === 'reloop-rescue' ? (
+            <div style={{ padding: '8px 16px' }}>
+              <RescueDashboard onOpenRescueModal={() => setIsRescueModalOpen(true)} />
+            </div>
+          ) : (
+            <>
+              {/* Top Greeting Banner */}
+              <GreetingBanner user={user} />
 
-          {/* 4 Metric Cards */}
-          <MetricsCards 
-            stats={stats} 
-            onActionClick={(tabKey) => {
-              if (tabKey === 'demands') setIsDemandModalOpen(true);
-              else if (tabKey === 'matches') showToast("Displaying confirmed supplier matches.");
-              else if (tabKey === 'reports') handleDownloadAnnualReport();
-              else if (tabKey === 'find-water') {
-                const el = document.querySelector('.sources-table-card');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }
-            }}
-          />
-
+              {/* 4 Metric Cards */}
+              <MetricsCards 
+                stats={stats} 
+                onActionClick={(tabKey) => {
+                  if (tabKey === 'demands') setIsDemandModalOpen(true);
+                  else if (tabKey === 'matches') showToast("Displaying confirmed supplier matches.");
+                  else if (tabKey === 'reports') handleDownloadAnnualReport();
+                  else if (tabKey === 'find-water') {
+                    const el = document.querySelector('.sources-table-card');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+              />
           {/* 2-Column Split: Center Main & Right Sidebar */}
           <div className="dashboard-grid-content">
             {/* Center Area: Map, Sources Table, Impact */}
@@ -220,6 +226,8 @@ export default function WaterDashboard({ currentUser, onLogout }) {
               onOpenRescueModal={() => setIsRescueModalOpen(true)}
             />
           </div>
+            </>
+          )}
         </main>
       </div>
 

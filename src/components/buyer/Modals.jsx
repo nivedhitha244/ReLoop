@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
+import { buyerApi } from '../../services/buyerApi';
 import { 
-  X, 
+  X,
+  AlertTriangle,
+  XCircle,
+  Truck, 
   Droplet, 
   ShieldAlert, 
   ShieldCheck,
@@ -645,9 +649,13 @@ export function RequestModal({ isOpen, onClose, source, demands = [], requests =
   );
 }
 
-export function RescueModal({ isOpen, onClose, onExecuteRescue }) {
-  const [status, setStatus] = useState('idle'); // idle | running | success
+export function RescueModal({ isOpen, onClose, onExecuteRescue, demandId, failedSourceId, initialReason }) {
+  const [status, setStatus] = useState('idle'); // idle | running | evaluated | dispatched
+  const [scenarioId, setScenarioId] = useState('CONTAMINATION_TURBIDITY');
+  const [searchRadiusKm, setSearchRadiusKm] = useState(10);
+  const [currentStage, setCurrentStage] = useState(1);
   const [rescueResult, setRescueResult] = useState(null);
+  const [loadingDispatch, setLoadingDispatch] = useState(false);
 
   // Support ESC key to close modal
   React.useEffect(() => {
@@ -659,16 +667,81 @@ export function RescueModal({ isOpen, onClose, onExecuteRescue }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Reset state when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setStatus('idle');
+      setCurrentStage(1);
+      setRescueResult(null);
+      if (initialReason) {
+        if (initialReason.toLowerCase().includes('quantity')) setScenarioId('CAPACITY_DROP_75');
+        else if (initialReason.toLowerCase().includes('delivery')) setScenarioId('DELIVERY_FAILURE');
+        else if (initialReason.toLowerCase().includes('expire')) setScenarioId('QUALITY_CERT_EXPIRED');
+      }
+    }
+  }, [isOpen, initialReason]);
+
   if (!isOpen) return null;
 
-  const runRescue = async () => {
+  const runRescueSimulation = async () => {
     setStatus('running');
-    setTimeout(async () => {
-      const result = await onExecuteRescue();
-      setRescueResult(result);
-      setStatus('success');
-    }, 1200);
+    setCurrentStage(1);
+
+    setTimeout(() => setCurrentStage(2), 500);
+    setTimeout(() => setCurrentStage(3), 1000);
+    setTimeout(() => setCurrentStage(4), 1500);
+    setTimeout(() => setCurrentStage(5), 2000);
+
+    try {
+      const res = await buyerApi.simulateRescue({
+        scenarioId,
+        demandId,
+        failedSourceId,
+        searchRadiusKm: Number(searchRadiusKm),
+        isSimulated: true
+      });
+
+      setTimeout(() => {
+        setCurrentStage(6);
+        setRescueResult(res);
+        setStatus('evaluated');
+      }, 2500);
+    } catch (err) {
+      console.error('Simulation error:', err);
+      // Fallback to legacy onExecuteRescue if network fails
+      if (onExecuteRescue) {
+        const fallbackRes = await onExecuteRescue(demandId, failedSourceId, initialReason);
+        setRescueResult(fallbackRes);
+      }
+      setStatus('evaluated');
+    }
   };
+
+  const handleConfirmDispatch = async () => {
+    if (!rescueResult?.incident?.incidentId) {
+      setStatus('dispatched');
+      return;
+    }
+    try {
+      setLoadingDispatch(true);
+      await buyerApi.resolveRescue(rescueResult.incident.incidentId);
+      setStatus('dispatched');
+    } catch (err) {
+      console.warn('Dispatch resolution error:', err);
+      setStatus('dispatched');
+    } finally {
+      setLoadingDispatch(false);
+    }
+  };
+
+  const scenariosList = [
+    { id: 'CONTAMINATION_TURBIDITY', label: 'Contamination Alert (Turbidity > 5.0 NTU Spike)', cat: 'Water Quality' },
+    { id: 'CONTAMINATION_PH', label: 'Chemical Anomaly (Extreme pH 4.8 Acidification)', cat: 'Water Quality' },
+    { id: 'CAPACITY_DROP_75', label: 'Sudden Volume Shortage (-75% Yield Deficit)', cat: 'Quantity' },
+    { id: 'SUPPLIER_UNAVAILABLE', label: 'Plant Power Grid Outage (0 kW / Offline)', cat: 'Unavailability' },
+    { id: 'DELIVERY_FAILURE', label: 'Transit Tanker Breakdown at KM 4.2', cat: 'Logistics' },
+    { id: 'QUALITY_CERT_EXPIRED', label: 'Safe Reuse Gate Failure (Lab Report Expired)', cat: 'Compliance' }
+  ];
 
   return (
     <div 
@@ -677,7 +750,7 @@ export function RescueModal({ isOpen, onClose, onExecuteRescue }) {
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backgroundColor: 'rgba(15, 23, 42, 0.7)',
         backdropFilter: 'blur(6px)',
         zIndex: 1100,
         display: 'flex',
@@ -691,99 +764,284 @@ export function RescueModal({ isOpen, onClose, onExecuteRescue }) {
         className="modal-container rescue-modal"
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxWidth: '540px',
+          maxWidth: '680px',
           width: '100%',
-          maxHeight: 'min(540px, 88vh)',
+          maxHeight: 'min(700px, 92vh)',
           display: 'flex',
           flexDirection: 'column',
           borderRadius: '16px',
           overflow: 'hidden',
           backgroundColor: '#ffffff',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
           margin: 'auto',
           border: '1px solid rgba(226, 232, 240, 0.9)'
         }}
       >
-        <div className="modal-header">
+        <div className="modal-header" style={{ background: 'linear-gradient(135deg, #064e3b 0%, #0d9488 100%)', color: '#fff', padding: '18px 24px' }}>
           <div className="modal-title-wrap">
-            <div className="modal-icon-badge bg-teal-800 text-teal-200">
+            <div className="modal-icon-badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '10px', padding: '6px' }}>
               <ShieldAlert size={22} />
             </div>
             <div>
-              <h3 className="modal-title">ReLoop Rescue™ Emergency Routing</h3>
-              <p className="modal-subtitle">Automated fallback algorithm when a primary supplier is offline</p>
+              <h3 className="modal-title" style={{ color: '#fff', fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                ReLoop Rescue™ Continuous Supply Shield
+              </h3>
+              <p className="modal-subtitle" style={{ color: '#ccfbf1', fontSize: '12.5px', margin: '2px 0 0' }}>
+                Safe Reuse Gate Verified Failover & Autonomous Tanker Rerouting
+              </p>
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            <X size={18} />
+          <button className="modal-close-btn" onClick={onClose} style={{ color: '#fff', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+            <X size={20} />
           </button>
         </div>
 
-        <div className="modal-body">
+        <div className="modal-body" style={{ padding: '20px 24px', overflowY: 'auto', maxHeight: '540px' }}>
           {status === 'idle' && (
-            <div className="rescue-step-box">
-              <div className="rescue-alert-notice">
-                <AlertCircle size={20} className="text-amber-500" />
-                <p>
-                  Did a water source drop offline or fail quality standards? 
-                  ReLoop Rescue automatically scans local verified producers (STP, Greywater, Industrial) 
-                  within a 10 km radius and matches an instant backup.
-                </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', padding: '14px 16px', borderRadius: '12px', fontSize: '13px', color: '#0f766e', lineHeight: 1.5 }}>
+                <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  <ShieldCheck size={16} /> Safe Reuse Gate Protocol Active
+                </strong>
+                When an active water supplier experiences a contamination spike, mechanical pump failure, or transit breakdown, ReLoop Rescue automatically scans verified regional producers, enforces CPCB water reuse safety thresholds, and selects the optimal backup.
               </div>
 
-              <div className="rescue-features-list">
-                <div className="rescue-feat-item">
-                  <Zap size={16} className="text-teal-600" />
-                  <span>Instant geo-distance re-route</span>
+              {/* Simulation Scenario Options */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                  Select Failure Disruption Scenario:
+                </label>
+                <select
+                  value={scenarioId}
+                  onChange={(e) => setScenarioId(e.target.value)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '13px',
+                    backgroundColor: '#f8fafc',
+                    color: '#0f172a',
+                    fontWeight: 500
+                  }}
+                >
+                  {scenariosList.map(sc => (
+                    <option key={sc.id} value={sc.id}>
+                      [{sc.cat}] {sc.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Radius slider */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                    Configurable Search Radius:
+                  </label>
+                  <span style={{ background: '#f0fdfa', color: '#0f766e', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '12.5px', border: '1px solid #99f6e4' }}>
+                    {searchRadiusKm} km
+                  </span>
                 </div>
-                <div className="rescue-feat-item">
-                  <CheckCircle2 size={16} className="text-emerald-600" />
-                  <span>Only 100% lab-verified backups</span>
-                </div>
-                <div className="rescue-feat-item">
-                  <Droplet size={16} className="text-blue-600" />
-                  <span>Zero interruption to ongoing irrigation & construction</span>
-                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="25"
+                  step="1"
+                  value={searchRadiusKm}
+                  onChange={(e) => setSearchRadiusKm(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#0d9488', cursor: 'pointer' }}
+                />
+              </div>
+
+              {/* Telemetry pill */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#64748b', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1' }}></span>
+                <span>Includes simulated sensor telemetry &amp; live Safe Reuse Gate parameter verification.</span>
               </div>
             </div>
           )}
 
           {status === 'running' && (
-            <div className="rescue-loading-state">
-              <div className="pulse-spinner"></div>
-              <h4>Analyzing Network & Calculating Optimal Alternative...</h4>
-              <p>Scanning 4 nearby sources against Green Park demand requirements.</p>
+            <div style={{ padding: '20px 0', textAlign: 'center' }}>
+              <div className="pulse-spinner" style={{ margin: '0 auto 16px', width: 44, height: 44, borderWidth: 3 }}></div>
+              <h4 style={{ fontSize: '17px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
+                ReLoop Rescue™ Autonomous Failover Engaged...
+              </h4>
+              <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px' }}>
+                Executing Stage {currentStage} of 6 in Safe Supply Recovery Engine
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '460px', margin: '0 auto', textAlign: 'left', fontSize: '12.5px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: currentStage >= 1 ? '#059669' : '#94a3b8' }}>
+                  {currentStage >= 1 ? <CheckCircle2 size={16} /> : <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#e2e8f0' }} />}
+                  <span>1. Anomaly &amp; Disruption Audit Detected</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: currentStage >= 2 ? '#059669' : '#94a3b8' }}>
+                  {currentStage >= 2 ? <CheckCircle2 size={16} /> : <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#e2e8f0' }} />}
+                  <span>2. Scanning verified backup nodes within {searchRadiusKm} km</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: currentStage >= 3 ? '#059669' : '#94a3b8' }}>
+                  {currentStage >= 3 ? <CheckCircle2 size={16} /> : <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#e2e8f0' }} />}
+                  <span>3. Safe Reuse Gate CPCB compatibility verification</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: currentStage >= 4 ? '#059669' : '#94a3b8' }}>
+                  {currentStage >= 4 ? <CheckCircle2 size={16} /> : <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#e2e8f0' }} />}
+                  <span>4. Computing 5-factor weighted multi-criteria ranking</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: currentStage >= 5 ? '#059669' : '#94a3b8' }}>
+                  {currentStage >= 5 ? <CheckCircle2 size={16} /> : <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#e2e8f0' }} />}
+                  <span>5. Selecting optimal alternative &amp; route corridor</span>
+                </div>
+              </div>
             </div>
           )}
 
-          {status === 'success' && (
-            <div className="rescue-success-state">
-              <div className="success-icon-wrap">
-                <CheckCircle2 size={36} className="text-emerald-500" />
+          {status === 'evaluated' && rescueResult && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Outcome Badge Card */}
+              <div style={{
+                background: rescueResult.outcome === 'AUTOMATIC_RECOVERY' ? '#ecfdf5' : rescueResult.outcome === 'PARTIAL_RECOVERY' ? '#fffbeb' : '#fff1f2',
+                border: `1.5px solid ${rescueResult.outcome === 'AUTOMATIC_RECOVERY' ? '#6ee7b7' : rescueResult.outcome === 'PARTIAL_RECOVERY' ? '#fde68a' : '#fecdd3'}`,
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px'
+              }}>
+                <div style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '10px',
+                  background: rescueResult.outcome === 'AUTOMATIC_RECOVERY' ? '#10b981' : rescueResult.outcome === 'PARTIAL_RECOVERY' ? '#d97706' : '#e11d48',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  {rescueResult.outcome === 'AUTOMATIC_RECOVERY' ? <ShieldCheck size={24} /> : <AlertTriangle size={24} />}
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 2px', color: rescueResult.outcome === 'AUTOMATIC_RECOVERY' ? '#064e3b' : '#78350f' }}>
+                    {rescueResult.outcome === 'AUTOMATIC_RECOVERY' && 'Autonomous Supply Failover Locked!'}
+                    {rescueResult.outcome === 'PARTIAL_RECOVERY' && 'Partial Continuity Recovery Formulated'}
+                    {rescueResult.outcome === 'EMERGENCY_ALERT' && 'Emergency Alert: Zero Safe Alternatives Found'}
+                  </h4>
+                  <p style={{ fontSize: '12.5px', margin: 0, color: '#334155' }}>
+                    {rescueResult.winningAlternative 
+                      ? `Safe Reuse Gate approved ${rescueResult.winningAlternative.sourceName} (${rescueResult.winningAlternative.score}/100 score, ${rescueResult.winningAlternative.distanceKm} km).`
+                      : 'All available candidates failed Safe Reuse Gate criteria or exceeded radius.'}
+                  </p>
+                </div>
               </div>
-              <h4 className="success-title">Emergency Backup Locked In!</h4>
-              <p className="success-subtitle">
-                Successfully redirected supply from <strong>Apartment Complex</strong> (Greywater, 3,000 L, 4.2 km)
-                to fulfill Green Park irrigation.
+
+              {/* Winning alternative summary */}
+              {rescueResult.winningAlternative && (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
+                    <span style={{ fontWeight: 700, color: '#0f172a' }}>Rerouted Supplier: {rescueResult.winningAlternative.sourceName}</span>
+                    <span style={{ fontWeight: 800, color: '#059669', background: '#dcfce7', padding: '2px 8px', borderRadius: '6px' }}>
+                      {rescueResult.winningAlternative.score}/100 Match Score
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12.5px', color: '#475569' }}>
+                    <div><strong>Distance:</strong> {rescueResult.winningAlternative.distanceKm} km</div>
+                    <div><strong>Volume:</strong> {rescueResult.winningAlternative.availableQuantity.toLocaleString()} L available</div>
+                    <div><strong>Est. Delivery Time:</strong> {rescueResult.winningAlternative.estimatedDeliveryMins} mins</div>
+                    <div><strong>Logistics Cost:</strong> ₹{rescueResult.winningAlternative.transportCost.toLocaleString()}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Safe Reuse Gate Verification Checks */}
+              {rescueResult.winningAlternative?.safeGate?.checks && (
+                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldCheck size={16} className="text-emerald-600" />
+                    Safe Reuse Gate Audit Results
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
+                    {rescueResult.winningAlternative.safeGate.checks.map((chk, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#475569' }}>{chk.name}:</span>
+                        <span style={{ color: chk.passed ? '#059669' : '#dc2626', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {chk.passed ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                          {chk.passed ? 'PASSED' : 'FAILED'} ({chk.observed})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Waybill / Transit Dispatch Notice */}
+              {rescueResult.routeReassignment && (
+                <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: '10px', padding: '10px 14px', fontSize: '12px', color: '#0f766e' }}>
+                  <strong>Waybill Issued:</strong> #{rescueResult.routeReassignment.waybillNumber} · 
+                  <span> Transporter: {rescueResult.routeReassignment.transporterFleet}</span> · 
+                  <span> ETA: {rescueResult.routeReassignment.estimatedArrival}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {status === 'dispatched' && (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#dcfce7', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <CheckCircle2 size={36} />
+              </div>
+              <h4 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
+                Emergency Tanker Dispatched!
+              </h4>
+              <p style={{ fontSize: '13.5px', color: '#475569', maxWidth: '420px', margin: '0 auto 16px', lineHeight: 1.5 }}>
+                EcoFlow logistics fleet has been mobilized. Dynamic GPS waypoints sent to driver terminal.
+                Water supply will arrive with zero disruption to scheduled irrigation/facility demand.
               </p>
-              <div className="stat-pill-summary">
-                <span>Distance: 4.2 km</span> · <span>Quality: Verified</span> · <span>Status: Dispatched</span>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 16px', display: 'inline-block', fontSize: '12.5px', color: '#334155' }}>
+                Status: <strong>In Transit</strong> · GPS Corridor: <strong>Active Dynamic Routing</strong>
               </div>
             </div>
           )}
         </div>
 
-        <div className="modal-actions">
+        <div className="modal-actions" style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           {status === 'idle' && (
             <>
               <button className="btn-cancel" onClick={onClose}>Close</button>
-              <button className="btn-primary btn-rescue-primary" onClick={runRescue}>
-                Activate ReLoop Rescue Now
+              <button 
+                className="btn-primary" 
+                style={{ background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onClick={runRescueSimulation}
+              >
+                <Zap size={16} />
+                Run Rescue Simulation
               </button>
             </>
           )}
-          {status === 'success' && (
-            <button className="btn-primary" onClick={onClose}>Done</button>
+
+          {status === 'evaluated' && (
+            <>
+              <button className="btn-cancel" onClick={() => setStatus('idle')}>Reset</button>
+              {rescueResult?.winningAlternative ? (
+                <button 
+                  className="btn-primary" 
+                  style={{ background: '#059669', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  onClick={handleConfirmDispatch}
+                  disabled={loadingDispatch}
+                >
+                  <Truck size={16} />
+                  {loadingDispatch ? 'Dispatching...' : 'Confirm Tanker Dispatch'}
+                </button>
+              ) : (
+                <button className="btn-primary" onClick={onClose}>Acknowledge Alert</button>
+              )}
+            </>
+          )}
+
+          {status === 'dispatched' && (
+            <button className="btn-primary" onClick={onClose} style={{ background: '#059669', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+              Done
+            </button>
           )}
         </div>
       </div>
@@ -791,10 +1049,6 @@ export function RescueModal({ isOpen, onClose, onExecuteRescue }) {
   );
 }
 
-/**
- * Intelligent Matching Results Modal
- * Discovers, filters, and ranks eligible water sources for a specific demand.
- */
 export function DemandMatchesModal({ isOpen, onClose, demand, onSelectSourceForRequest, onRequestWater }) {
   const [loading, setLoading] = useState(true);
   const [matchData, setMatchData] = useState(null);
